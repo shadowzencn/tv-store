@@ -31,6 +31,18 @@
 
 不采用网页套壳方案。
 
+### 目标平台
+| 项目 | 决定 |
+|---|---|
+| 最低版本 | Android 9（minSdk 28） |
+| 重点适配版本 | Android 11（API 30），即 TCL Q10L 的系统版本 |
+| 重点 CPU 架构 | armeabi-v7a（32 位 ARM），即 TCL Q10L 的应用运行架构 |
+| 应用包名 | `com.shadowzen.tvstore` |
+
+- Q10L 的 Android 11 和 armeabi-v7a 信息由用户提供，尚未通过实机核实。
+- 客户端本身为纯 Kotlin，不引入原生库；如以后引入原生依赖，必须包含 armeabi-v7a。
+- targetSdk 和 compileSdk 在创建工程时根据依赖要求确定，并回写本文档。
+
 ### 服务端
 | 技术 | 用途 |
 |---|---|
@@ -63,7 +75,7 @@ tv-store/
 Android 初期采用单一 Gradle 模块，按功能划分代码包：
 ```text
 android/app/src/main/java/
-└── com/example/tvstore/
+└── com/shadowzen/tvstore/
     ├── core/
     │   ├── network/
     │   ├── database/
@@ -80,7 +92,7 @@ android/app/src/main/java/
     │   └── settings/
     └── MainActivity.kt
 ```
-实际包名 `com.example.tvstore` 只是占位符，正式开发前确定。
+正式包名（applicationId 和代码根包名）为 `com.shadowzen.tvstore`，发布后不得更改。
 
 ## 5. API 设计
 | 方法 | 路径 | 功能 |
@@ -133,7 +145,7 @@ APKM、APKS、XAPK 不等于 Android 原生 APK，必须单独处理。
 2. PackageInstaller 普通 APK 安装。
 3. 下载器暂停、续传、校验和重启恢复。
 
-最低 Android 版本必须结合 Q10L 实际系统版本和目标设备范围决定，不能直接假定。
+最低版本已定为 Android 9（minSdk 28），重点适配 Android 11 和 armeabi-v7a（见第 3 节"目标平台"）。Q10L 的系统版本和架构为用户提供信息，需在实机测试中核实。
 
 ## 13. 技术决策管理
 技术选型在验证后才能标记为正式确定。涉及技术栈、数据模型、API 或工程结构的重大变化，必须先更新本文档，再修改代码。
