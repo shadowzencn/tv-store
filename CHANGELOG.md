@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Verified
+- 阶段 1 界面原型（internal 构建）在 TCL Q10L 上实机验证通过（用户确认）：遥控器操作流畅，焦点清晰无裁切，标签焦点恢复、详情页返回焦点恢复、返回键行为和远距离可读性均正常。debug 构建在该设备上明显卡顿，实机体验以 internal/release 构建为准。
+
 ### Changed
 - AGENTS.md：禁止通过 ADB 连接或调试 TCL Q10L。
 - PRD / TDD：确定最低版本 Android 9（minSdk 28）、重点适配 Android 11、重点架构 armeabi-v7a、包名 com.shadowzen.tvstore。
