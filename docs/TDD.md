@@ -44,6 +44,7 @@
 - compileSdk 37（Compose 1.12 要求至少 37），targetSdk 36。
 - 构建工具链：AGP 9.5.1（内置 Kotlin 支持）、Gradle Wrapper 9.6.1、Kotlin Compose 插件 2.4.21、JDK 17。
 - UI 依赖：Compose BOM 2026.09.00、androidx.tv:tv-material 1.1.0、activity-compose 1.13.0。
+- 测试依赖：JUnit 4.13.2（仅 JVM 单元测试，不打包进 APK）。
 - Compose 依赖会带入原生库 libandroidx.graphics.path.so，APK 中已包含 armeabi-v7a 版本。
 
 ### 服务端
@@ -84,6 +85,8 @@ android/app/src/main/java/
     │   ├── database/
     │   ├── download/
     │   ├── installer/
+    │   ├── model/          # 跨功能共享的数据模型
+    │   ├── sample/         # 界面原型阶段的本地示例数据，接入 API 后移除
     │   └── designsystem/
     ├── feature/
     │   ├── home/
@@ -93,6 +96,7 @@ android/app/src/main/java/
     │   ├── downloads/
     │   ├── favorites/
     │   └── settings/
+    ├── TvStoreApp.kt       # 顶部导航和页面切换
     └── MainActivity.kt
 ```
 正式包名（applicationId 和代码根包名）为 `com.shadowzen.tvstore`，发布后不得更改。

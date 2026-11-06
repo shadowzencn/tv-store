@@ -11,6 +11,8 @@
 ### Added
 - android/：创建最小 Compose for TV 空工程（AGP 9.5.1、Gradle 9.6.1、compileSdk 37、targetSdk 36、minSdk 28），assembleDebug 编译通过。
 - .gitattributes：统一 gradlew、.bat 和二进制文件的换行与差异规则。
+- 阶段 1 界面原型（本地示例数据）：顶部横向导航、精选推荐、常用应用和 6 个分类横向列表、卡片焦点描边与放大、应用详情页、返回键处理和返回后焦点恢复；其他标签页为占位页。
+- 单元测试：格式化函数和示例数据完整性（新增测试依赖 JUnit 4.13.2）。
 
 ## [0.1.0] - 项目初始化
 
