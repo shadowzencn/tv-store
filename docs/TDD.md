@@ -45,6 +45,7 @@
 - 构建工具链：AGP 9.5.1（内置 Kotlin 支持）、Gradle Wrapper 9.6.1、Kotlin Compose 插件 2.4.21、JDK 17。
 - UI 依赖：Compose BOM 2026.09.00、androidx.tv:tv-material 1.1.0、activity-compose 1.13.0。
 - 测试依赖：JUnit 4.13.2（仅 JVM 单元测试，不打包进 APK）。
+- 构建类型：debug 仅用于开发调试，性能不代表实际体验；release 开启 R8 和资源压缩并打包库自带的基线配置文件；internal 与 release 相同，但使用本机调试证书签名，仅供实机测试，不得用于正式发布。实机体验以 internal 或 release 为准。
 - Compose 依赖会带入原生库 libandroidx.graphics.path.so，APK 中已包含 armeabi-v7a 版本。
 
 ### 服务端

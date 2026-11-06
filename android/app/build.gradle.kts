@@ -17,7 +17,16 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+        // 内测包：与 release 相同的 R8 优化和基线配置文件，但用本机调试证书签名以便直接安装。
+        // 只用于实机测试，正式发布必须使用 release 和正式签名证书。
+        create("internal") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
         }
     }
 
