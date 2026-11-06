@@ -18,8 +18,13 @@ import com.shadowzen.tvstore.core.model.StoreApp
 /** 没有真实图标时使用的统一占位图标：彩色圆角方块加应用名首字。 */
 @Composable
 fun AppIcon(app: StoreApp, size: Dp, modifier: Modifier = Modifier) {
+    AppIcon(appId = app.id, appName = app.name, size = size, modifier = modifier)
+}
+
+@Composable
+fun AppIcon(appId: String, appName: String, size: Dp, modifier: Modifier = Modifier) {
     val palette = StoreColors.IconPalette
-    val color = palette[(app.id.hashCode() and Int.MAX_VALUE) % palette.size]
+    val color = palette[(appId.hashCode() and Int.MAX_VALUE) % palette.size]
     Box(
         modifier = modifier
             .size(size)
@@ -28,7 +33,7 @@ fun AppIcon(app: StoreApp, size: Dp, modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = app.name.take(1),
+            text = appName.take(1),
             color = Color.White,
             fontSize = (size.value * 0.42f).sp,
             fontWeight = FontWeight.Bold,

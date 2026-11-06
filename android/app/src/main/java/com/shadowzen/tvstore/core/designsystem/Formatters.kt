@@ -11,6 +11,8 @@ fun formatFileSize(bytes: Long): String {
     }
 }
 
+fun formatSpeed(bytesPerSecond: Long): String = "${formatFileSize(bytesPerSecond)}/s"
+
 fun androidVersionName(sdk: Int): String = when (sdk) {
     21 -> "Android 5.0"
     22 -> "Android 5.1"

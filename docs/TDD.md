@@ -43,8 +43,9 @@
 - 客户端本身为纯 Kotlin，不引入原生库；如以后引入原生依赖，必须包含 armeabi-v7a。
 - compileSdk 37（Compose 1.12 要求至少 37），targetSdk 36。
 - 构建工具链：AGP 9.5.1（内置 Kotlin 支持）、Gradle Wrapper 9.6.1、Kotlin Compose 插件 2.4.21、JDK 17。
-- UI 依赖：Compose BOM 2026.09.00、androidx.tv:tv-material 1.1.0、activity-compose 1.13.0。
-- 测试依赖：JUnit 4.13.2（仅 JVM 单元测试，不打包进 APK）。
+- UI 依赖：Compose BOM 2026.09.00、androidx.tv:tv-material 1.1.0、activity-compose 1.13.0、lifecycle-runtime-compose 2.11.0（按生命周期收集数据流）。
+- 数据与下载依赖（阶段 3 起）：OkHttp 5.5.1（HTTP 下载）、Room 2.8.5（下载任务持久化，KSP 2.3.13 生成代码，数据库结构导出到 `android/app/schemas/`）、WorkManager 2.12.0（下载队列调度和重启恢复）。
+- 测试依赖（仅 JVM 单元测试，不打包进 APK）：JUnit 4.13.2、OkHttp MockWebServer 5.5.1（模拟支持 Range 的文件服务器）、Robolectric 4.17（在电脑上模拟 Android 11 运行 Room、WorkManager 和 Compose 界面测试）、androidx.test core 1.7.0、work-testing 2.12.0、Compose ui-test-junit4（随 BOM）、kotlinx-coroutines-test 1.11.0。Compose 界面测试需要的 ui-test-manifest 只进入 debug 版。
 - 构建类型：debug 仅用于开发调试，性能不代表实际体验；release 开启 R8 和资源压缩并打包库自带的基线配置文件；internal 与 release 相同，但使用本机调试证书签名，仅供实机测试，不得用于正式发布。实机体验以 internal 或 release 为准。
 - Compose 依赖会带入原生库 libandroidx.graphics.path.so，APK 中已包含 armeabi-v7a 版本。
 
@@ -134,6 +135,18 @@ android/app/src/main/java/
 WorkManager 负责持久化任务调度和恢复，不代替下载器本身。
 服务端必须正确支持 HTTP Range；不能支持时提供重新下载的降级方案。
 
+当前实现（`core/download/`、`core/database/`）：
+- `DownloadEngine`：单文件下载器。未完成的数据写入 `.apk.part`；续传时发送 `Range: bytes=N-` 和 `If-Range`（上次响应的强 ETag，否则 Last-Modified）。服务器返回 206 时追加；返回 200（不支持 Range 或文件已变化）时从头下载；返回 416 且已有数据等于文件大小时直接校验。下载完成后计算 SHA-256，一致才改名为 `.apk`，不一致删除文件并报告失败。下载前检查可用空间（含可清理缓存），并核对服务器文件大小与商店记录。请求使用 `Accept-Encoding: identity`，避免压缩传输破坏字节范围。
+- 错误分类：网络中断、服务器 5xx/408/429 可自动重试；其他 HTTP 错误、大小不一致、校验失败、空间不足、写入失败不自动重试。
+- `DownloadTask`（Room 表 `download_tasks`）：每个应用一个任务，状态为排队、下载中、校验中、已暂停、失败、已完成、已安装。所有状态变更都带前置状态条件，下载线程不会覆盖用户的暂停和删除。
+- `DownloadManager`：创建、暂停、继续/重试、删除任务，只改数据库并触发调度。同一应用的新版本任务替换旧任务并删除旧文件。
+- `DownloadQueueRunner`：按创建顺序逐个下载（一次一个任务）。监听数据库，任务被暂停或删除时立即停止当前下载；可重试错误自动重试 3 次（间隔 2、5、10 秒），仍失败则标记失败，用户可手动重试。运行开始时把停在“下载中”的任务放回队列，实现进程被杀或重启后的恢复（续传已下载部分）。
+- `DownloadWorker`：WorkManager 唯一任务（追加模式），要求网络已连接，以 dataSync 类型前台服务运行以支持超过 10 分钟的下载；应用在后台无法启动前台服务时按普通任务继续，被系统停止后自动重新调度。应用启动时如有未完成任务会重新调度。
+- 文件位置：应用私有目录 `files/downloads/`，无需存储权限；安装成功后删除安装包，保留“已安装”记录。
+- 下载完成且界面在前台时自动调用安装流程（系统安装确认界面由用户确认）；在后台完成的任务在下载管理页或详情页手动选择“安装”。
+
+自动化测试（电脑上运行，不需要电视）：MockWebServer 模拟正确实现 Range/If-Range 的服务器，覆盖完整下载、续传、文件变化后重下、服务器不支持 Range、416、校验失败、大小不一致、空间不足、断线、取消；Robolectric（Android 11）覆盖暂停后续传、进程被杀后恢复、断线自动重试、重试用尽后手动重试、删除运行中任务、队列顺序、内部异常隔离，以及经 WorkManager 调度的完整下载；Compose 界面测试用方向键和确认键验证下载管理页的操作、删除确认和删除后的焦点去向，以及详情页主按钮随状态变化且焦点不丢失。
+
 ## 8. 安装架构
 首版支持普通单 APK。使用 Android PackageInstaller 调用系统安装流程。普通第三方应用不能默认静默安装，必须尊重系统安装授权和用户确认。
 后续支持分包安装时，解析安装包容器，获取 base APK 和 split APK，检查包名、版本和签名一致，再使用 PackageInstaller Session 安装。
@@ -145,6 +158,7 @@ APKM、APKS、XAPK 不等于 Android 原生 APK，必须单独处理。
 - `ApkInstaller`：创建 PackageInstaller 会话写入 APK 并提交；`InstallResultReceiver` 收到 STATUS_PENDING_USER_ACTION 时打开系统确认界面，最终结果经 `InstallEvents` 送到界面。
 - 未允许“安装未知应用”时先引导到系统设置；设备没有该设置页面时直接提交，由系统决定是否提示。
 - 软件包可见性：internal 版只对测试包声明 `<queries>`。正式版查询其他应用的方式在接入真实应用数据时确定。
+- 商店安装流程（`StoreInstaller`）：下载完成的安装包先按商店记录的包名执行 `InstallPolicy` 检查，再提交系统安装；安装状态按应用保存在内存中，安装成功后删除安装包。正式版尚未声明 `<queries>`：Android 11 起查询不到的应用会按全新安装处理，此时签名冲突和降级仍由系统安装程序拒绝；通过本商店安装的应用能否被查询，在里程碑测试 1 中实机核实后再确定可见性方案。
 
 安装验证（internal 版专用）：`android/installtest/` 模块产出 v1、v2 和异签 v2 三个测试 APK，只打包进 internal 版 assets；“设置”页显示安装测试入口。异签证书在构建时生成到 `build/`，不进 Git，仅用于签名冲突测试。
 

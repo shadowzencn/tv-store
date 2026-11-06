@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 /** 把 installtest 模块的三个测试 APK 复制成 internal 版商店的 assets/installtest/。 */
@@ -65,6 +67,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        // Robolectric 测试需要读取合并后的清单和资源
+        unitTests.isIncludeAndroidResources = true
+    }
+}
+
+room {
+    // 导出数据库结构，供以后编写和校验迁移
+    schemaDirectory("$projectDir/schemas")
 }
 
 androidComponents {
@@ -80,6 +92,20 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.tv.material)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    // Compose 界面测试需要的空 Activity，只进入 debug 版
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

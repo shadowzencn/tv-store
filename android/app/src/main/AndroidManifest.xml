@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- 国行电视多数不是 Google TV，leanback 和触摸屏都不能设为必需 -->
     <uses-feature
@@ -9,9 +10,14 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 长时间下载以前台服务运行，避免被系统在 10 分钟后停止 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
+        android:name=".TvStoreApplication"
         android:allowBackup="false"
         android:banner="@drawable/app_banner"
         android:icon="@drawable/ic_launcher"
@@ -33,6 +39,11 @@
         <receiver
             android:name=".core.installer.InstallResultReceiver"
             android:exported="false" />
+
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
     </application>
 
 </manifest>

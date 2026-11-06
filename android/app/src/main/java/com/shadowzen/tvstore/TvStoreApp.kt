@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Tab
@@ -31,8 +36,12 @@ import androidx.tv.material3.TabRow
 import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
+import com.shadowzen.tvstore.core.designsystem.formatFileSize
 import com.shadowzen.tvstore.core.sample.SampleCatalog
 import com.shadowzen.tvstore.feature.detail.DetailScreen
+import com.shadowzen.tvstore.feature.downloads.DownloadsScreen
+import com.shadowzen.tvstore.feature.downloads.StatusLine
+import com.shadowzen.tvstore.feature.downloads.statusLineFor
 import com.shadowzen.tvstore.feature.home.FEATURED_SHELF_ID
 import com.shadowzen.tvstore.feature.home.HomeFocusState
 import com.shadowzen.tvstore.feature.home.HomeScreen
@@ -56,6 +65,19 @@ fun TvStoreApp() {
     val tabFocusRequesters = remember { TopTab.entries.associateWith { FocusRequester() } }
     val context = LocalContext.current
     val installTestAvailable = remember { isInstallTestAvailable(context) }
+    val container = remember { (context.applicationContext as TvStoreApplication).container }
+    val coordinator = container.downloadCoordinator
+    val tasks by container.downloadManager.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
+    val installStates by container.storeInstaller.states.collectAsStateWithLifecycle()
+    val notices by coordinator.notices.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // 只在前台自动安装刚下载完成的应用，后台时系统不允许弹出安装界面
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            container.completedDownloads.collect { appId -> coordinator.installCompleted(appId) }
+        }
+    }
     val homeFocusState = remember {
         HomeFocusState(
             initialFocusKey = SampleCatalog.featured.firstOrNull()?.let { homeFocusKey(FEATURED_SHELF_ID, it.id) },
@@ -72,7 +94,16 @@ fun TvStoreApp() {
         val detailApp = detailAppId?.let(SampleCatalog::findApp)
         if (detailApp != null) {
             BackHandler { detailAppId = null }
-            DetailScreen(app = detailApp, categoryName = SampleCatalog.categoryName(detailApp.categoryId))
+            val task = tasks.firstOrNull { it.appId == detailApp.id }
+            val notice = notices[detailApp.id]
+            DetailScreen(
+                app = detailApp,
+                categoryName = SampleCatalog.categoryName(detailApp.categoryId),
+                task = task,
+                statusLine = notice?.let { StatusLine(it, StoreColors.Warning) }
+                    ?: task?.let { statusLineFor(it, installStates[it.appId], null) },
+                onPrimaryAction = { action -> coordinator.perform(action, detailApp.id, task, detailApp) },
+            )
             return@Surface
         }
 
@@ -97,6 +128,19 @@ fun TvStoreApp() {
                         homeFocusState.pendingFocusKey = homeFocusKey(shelfId, app.id)
                         detailAppId = app.id
                     },
+                )
+                TopTab.DOWNLOADS -> DownloadsScreen(
+                    tasks = tasks,
+                    installStates = installStates,
+                    notices = notices,
+                    freeSpaceText = remember(tasks.size) {
+                        "可用空间 ${formatFileSize(container.storageSpace.availableBytes(context.filesDir))}"
+                    },
+                    onAction = { action, task ->
+                        coordinator.perform(action, task.appId, task, SampleCatalog.findApp(task.appId))
+                    },
+                    onDelete = { task -> coordinator.delete(task.appId) },
+                    onListEmptied = { tabFocusRequesters.getValue(TopTab.DOWNLOADS).requestFocus() },
                 )
                 TopTab.SETTINGS -> if (installTestAvailable) {
                     InstallTestScreen()

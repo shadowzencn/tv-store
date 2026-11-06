@@ -11,11 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -25,22 +21,32 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
+import com.shadowzen.tvstore.core.database.DownloadStatus
+import com.shadowzen.tvstore.core.database.DownloadTask
 import com.shadowzen.tvstore.core.designsystem.AppIcon
+import com.shadowzen.tvstore.core.designsystem.StoreProgressBar
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.androidVersionName
 import com.shadowzen.tvstore.core.designsystem.formatFileSize
 import com.shadowzen.tvstore.core.model.CompatibilityStatus
 import com.shadowzen.tvstore.core.model.StoreApp
+import com.shadowzen.tvstore.feature.downloads.DownloadAction
+import com.shadowzen.tvstore.feature.downloads.StatusLine
+import com.shadowzen.tvstore.feature.downloads.primaryActionFor
+import com.shadowzen.tvstore.feature.downloads.sizeLineFor
 
 @Composable
 fun DetailScreen(
     app: StoreApp,
     categoryName: String,
+    task: DownloadTask?,
+    statusLine: StatusLine?,
+    onPrimaryAction: (DownloadAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val downloadFocus = remember { FocusRequester() }
-    var showNotImplemented by rememberSaveable(app.id) { mutableStateOf(false) }
+    val action = primaryActionFor(task, hasPackage = app.download != null)
 
     LaunchedEffect(app.id) { downloadFocus.requestFocus() }
 
@@ -83,19 +89,21 @@ fun DetailScreen(
 
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 Button(
-                    onClick = { showNotImplemented = true },
+                    onClick = { onPrimaryAction(action) },
                     modifier = Modifier.focusRequester(downloadFocus),
                 ) {
-                    Text(text = "下载", fontSize = 18.sp, modifier = Modifier.padding(horizontal = 24.dp))
+                    Text(text = action.label, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 24.dp))
                 }
             }
-            if (showNotImplemented) {
+            if (task != null && task.status != DownloadStatus.INSTALLED) {
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    text = "当前为界面原型，下载和安装将在后续阶段实现。",
-                    fontSize = 16.sp,
-                    color = StoreColors.AccentSecondary,
-                )
+                StoreProgressBar(progress = task.progress ?: 0f, modifier = Modifier.width(420.dp))
+                Spacer(Modifier.height(6.dp))
+                Text(text = sizeLineFor(task), fontSize = 15.sp, color = StoreColors.TextSecondary)
+            }
+            if (statusLine != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(text = statusLine.text, fontSize = 16.sp, color = statusLine.color)
             }
         }
     }
