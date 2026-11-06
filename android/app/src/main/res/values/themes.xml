@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="page_background">#0B1020</color>
+
+    <style name="Theme.TvStore" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/page_background</item>
+    </style>
+</resources>

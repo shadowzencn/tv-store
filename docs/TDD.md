@@ -41,7 +41,10 @@
 
 - Q10L 的 Android 11 和 armeabi-v7a 信息由用户提供，尚未通过实机核实。
 - 客户端本身为纯 Kotlin，不引入原生库；如以后引入原生依赖，必须包含 armeabi-v7a。
-- targetSdk 和 compileSdk 在创建工程时根据依赖要求确定，并回写本文档。
+- compileSdk 37（Compose 1.12 要求至少 37），targetSdk 36。
+- 构建工具链：AGP 9.5.1（内置 Kotlin 支持）、Gradle Wrapper 9.6.1、Kotlin Compose 插件 2.4.21、JDK 17。
+- UI 依赖：Compose BOM 2026.09.00、androidx.tv:tv-material 1.1.0、activity-compose 1.13.0。
+- Compose 依赖会带入原生库 libandroidx.graphics.path.so，APK 中已包含 armeabi-v7a 版本。
 
 ### 服务端
 | 技术 | 用途 |

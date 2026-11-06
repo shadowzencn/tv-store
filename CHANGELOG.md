@@ -8,6 +8,10 @@
 - AGENTS.md：禁止通过 ADB 连接或调试 TCL Q10L。
 - PRD / TDD：确定最低版本 Android 9（minSdk 28）、重点适配 Android 11、重点架构 armeabi-v7a、包名 com.shadowzen.tvstore。
 
+### Added
+- android/：创建最小 Compose for TV 空工程（AGP 9.5.1、Gradle 9.6.1、compileSdk 37、targetSdk 36、minSdk 28），assembleDebug 编译通过。
+- .gitattributes：统一 gradlew、.bat 和二进制文件的换行与差异规则。
+
 ## [0.1.0] - 项目初始化
 
 ### Added
