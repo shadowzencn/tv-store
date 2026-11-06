@@ -2,6 +2,10 @@ package com.shadowzen.tvstore
 
 import android.content.Context
 import android.util.Log
+import com.shadowzen.tvstore.core.catalog.CatalogApi
+import com.shadowzen.tvstore.core.catalog.CatalogCache
+import com.shadowzen.tvstore.core.catalog.CatalogParser
+import com.shadowzen.tvstore.core.catalog.CatalogRepository
 import com.shadowzen.tvstore.core.database.StoreDatabase
 import com.shadowzen.tvstore.core.download.DownloadEngine
 import com.shadowzen.tvstore.core.download.DownloadFiles
@@ -19,6 +23,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.io.File
 import java.io.IOException
 
@@ -30,6 +35,25 @@ class AppContainer(context: Context) {
 
     private val database by lazy { StoreDatabase.create(appContext) }
     private val httpClient by lazy { StoreHttpClient.create() }
+
+    /** 服务端基础地址，构建时由 build.gradle.kts 写入并校验格式。 */
+    private val serverBaseUrl by lazy { BuildConfig.STORE_SERVER_URL.toHttpUrl() }
+
+    val catalogRepository by lazy {
+        CatalogRepository(
+            api = CatalogApi(httpClient, serverBaseUrl),
+            cache = CatalogCache(File(appContext.filesDir, "catalog/catalog.cache")),
+            parse = { body ->
+                CatalogParser.parse(body, serverBaseUrl) { skipped -> Log.w("CatalogParser", skipped) }
+            },
+            onError = { message, error -> Log.e("CatalogRepository", message, error) },
+        )
+    }
+
+    /** 在进程级作用域刷新目录，离开页面不会中断。 */
+    fun refreshCatalog() {
+        appScope.launch { catalogRepository.refresh() }
+    }
 
     val storageSpace by lazy { StorageSpace(appContext) }
 

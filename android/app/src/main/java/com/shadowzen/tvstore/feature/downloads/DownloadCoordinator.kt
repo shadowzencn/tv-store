@@ -45,7 +45,7 @@ class DownloadCoordinator(
                     }
                     DownloadAction.INSTALL -> task?.let { install(it) }
                     DownloadAction.OPEN -> task?.let { open(it.packageName, appId) }
-                    DownloadAction.UNAVAILABLE -> setNotice(appId, "示例数据没有安装包，接入服务端后才能下载。")
+                    DownloadAction.UNAVAILABLE -> setNotice(appId, "该应用暂时没有可下载的安装包。")
                 }
             } catch (e: IOException) {
                 Log.e(TAG, "下载操作失败：$action", e)

@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
-import com.shadowzen.tvstore.core.model.AppShelf
 import com.shadowzen.tvstore.core.model.StoreApp
 
 const val FEATURED_SHELF_ID = "featured"
@@ -34,19 +33,21 @@ fun homeFocusKey(shelfId: String, appId: String) = "$shelfId/$appId"
  * 因此由上层持有，而不是在 HomeScreen 内部 remember。
  */
 @Stable
-class HomeFocusState(initialFocusKey: String?) {
+class HomeFocusState(initialFocusKey: String? = null) {
     val columnState = LazyListState()
     private val shelfStates = mutableMapOf<String, LazyListState>()
 
     var pendingFocusKey by mutableStateOf(initialFocusKey)
+
+    /** 首次拿到目录内容时是否已把焦点交给第一张卡片。 */
+    var initialFocusAssigned = initialFocusKey != null
 
     fun shelfState(shelfId: String): LazyListState = shelfStates.getOrPut(shelfId) { LazyListState() }
 }
 
 @Composable
 fun HomeScreen(
-    featured: List<StoreApp>,
-    shelves: List<AppShelf>,
+    content: HomeContent,
     categoryName: (String) -> String,
     focusState: HomeFocusState,
     onAppClick: (shelfId: String, app: StoreApp) -> Unit,
@@ -57,18 +58,20 @@ fun HomeScreen(
         state = focusState.columnState,
         contentPadding = PaddingValues(bottom = 48.dp),
     ) {
-        item(key = FEATURED_SHELF_ID) {
-            Shelf(
-                shelfId = FEATURED_SHELF_ID,
-                title = "精选推荐",
-                apps = featured,
-                focusState = focusState,
-                onAppClick = onAppClick,
-            ) { app, requestFocus, onFocusRequested, onClick ->
-                FeaturedAppCard(app, categoryName(app.categoryId), requestFocus, onFocusRequested, onClick)
+        if (content.featured.isNotEmpty()) {
+            item(key = FEATURED_SHELF_ID) {
+                Shelf(
+                    shelfId = FEATURED_SHELF_ID,
+                    title = "精选推荐",
+                    apps = content.featured,
+                    focusState = focusState,
+                    onAppClick = onAppClick,
+                ) { app, requestFocus, onFocusRequested, onClick ->
+                    FeaturedAppCard(app, categoryName(app.categoryId), requestFocus, onFocusRequested, onClick)
+                }
             }
         }
-        items(shelves, key = { it.id }) { shelf ->
+        items(content.shelves, key = { it.id }) { shelf ->
             Shelf(
                 shelfId = shelf.id,
                 title = shelf.title,

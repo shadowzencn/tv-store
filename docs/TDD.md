@@ -1,6 +1,6 @@
 # 国行电视应用商店 — 技术架构设计文档（TDD）
 
-**版本：** V1.0  
+**版本：** V1.1  
 **状态：** 建议架构，待实机验证
 
 ## 1. 架构目标
@@ -8,12 +8,13 @@
 
 ## 2. 系统组成
 1. Android TV 客户端。
-2. FastAPI 业务服务端。
-3. React + Vite 管理后台。
-4. PostgreSQL 数据库。
-5. APK 文件存储服务。
+2. 服务端：一个 Laravel 项目，同时提供客户端接口和 Filament 管理后台。
+3. SQLite 数据库。
+4. APK 文件存储：服务器本地磁盘，由 Web 服务器（1Panel 的 OpenResty）直接提供静态下载。
 
-客户端通过 HTTPS API 获取应用资料，文件服务负责安装包下载。管理后台通过 API 管理应用、版本和反馈。
+客户端通过 HTTPS 接口获取应用目录，安装包下载不经过 PHP，由 Web 服务器直接提供并支持 Range。管理员通过浏览器登录管理后台维护应用、版本和反馈。
+
+> V1.1 调整（用户批准）：应用规模小、只有一名管理员，原方案的 FastAPI + PostgreSQL + React + Docker Compose 过重，改为 Laravel + Filament + SQLite，部署到 1Panel。
 
 ## 3. 技术选型
 
@@ -49,18 +50,18 @@
 - 构建类型：debug 仅用于开发调试，性能不代表实际体验；release 开启 R8 和资源压缩并打包库自带的基线配置文件；internal 与 release 相同，但使用本机调试证书签名，仅供实机测试，不得用于正式发布。实机体验以 internal 或 release 为准。
 - Compose 依赖会带入原生库 libandroidx.graphics.path.so，APK 中已包含 armeabi-v7a 版本。
 
-### 服务端
+### 服务端与管理后台
 | 技术 | 用途 |
 |---|---|
-| Python | 开发语言 |
-| FastAPI | API 框架 |
-| PostgreSQL | 数据库 |
-| Docker Compose | 部署 |
-| VPS 本地存储 | 初期文件存储 |
-| S3 兼容对象存储 | 后续扩展 |
+| PHP 8.4（Laravel 13 要求 8.3 及以上） | 开发语言 |
+| Laravel 13 | 客户端接口、数据模型、迁移、测试 |
+| Filament 5 | 管理后台（登录、应用、版本、反馈管理） |
+| SQLite | 数据库，数据量增大后可迁移到 MySQL |
+| 1Panel（OpenResty + PHP 运行环境） | 部署、HTTPS 证书、静态文件下载 |
+| 服务器本地磁盘 | 安装包存储 |
 
-### 管理后台
-React、Vite、TypeScript。
+- APK 信息识别用纯 PHP 实现（读取 zip、解析二进制 AndroidManifest、解析 APK 签名块），不依赖服务器上安装 Java、aapt2 或 apksigner。需要的 PHP 扩展：zip、openssl、pdo_sqlite、mbstring、intl、fileinfo。
+- 开发阶段在 Windows 本机用 PHP 8.4 和 Composer 运行和测试（PHPUnit），不需要 Docker。
 
 ## 4. 项目结构
 ```text
@@ -74,8 +75,7 @@ tv-store/
 │   ├── UI-DESIGN.md
 │   └── DEVELOPMENT-PLAN.md
 ├── android/
-├── server/
-└── admin/
+└── server/             # Laravel 项目：客户端接口 + Filament 管理后台
 ```
 
 商店客户端采用单一 Gradle 模块 `app`，按功能划分代码包（`android/installtest/` 是仅用于安装验证的测试应用模块，不属于商店客户端）：
@@ -88,7 +88,8 @@ android/app/src/main/java/
     │   ├── download/
     │   ├── installer/
     │   ├── model/          # 跨功能共享的数据模型
-    │   ├── sample/         # 界面原型阶段的本地示例数据，接入 API 后移除
+    │   ├── catalog/        # 目录接口、解析和缓存
+    │   ├── sample/         # 本地示例数据，只用于测试和界面预览
     │   └── designsystem/
     ├── feature/
     │   ├── home/
@@ -105,30 +106,45 @@ android/app/src/main/java/
 正式包名（applicationId 和代码根包名）为 `com.shadowzen.tvstore`，发布后不得更改。
 
 ## 5. API 设计
+应用数量在几十到几百个，客户端一次取回整个目录，分类、搜索和首页分组在电视上完成，也便于离线显示上次的数据。
+
 | 方法 | 路径 | 功能 |
 |---|---|---|
-| GET | /v1/home | 首页内容 |
-| GET | /v1/categories | 分类列表 |
-| GET | /v1/apps | 应用列表 |
-| GET | /v1/apps/{id} | 应用详情 |
-| GET | /v1/search | 搜索 |
-| GET | /v1/apps/{id}/versions/latest | 最新版本 |
-| POST | /v1/feedback | 用户反馈 |
-| GET | /v1/client/version | 商店客户端版本 |
+| GET | /api/v1/catalog | 分类、已上架应用及各自当前发布的版本 |
+| GET | /api/v1/client/version | 商店客户端（`com.shadowzen.tvstore`）当前发布的版本，用于检查自身更新 |
+| POST | /api/v1/feedback | 提交用户反馈，无需登录，按 IP 限制频率 |
 
-统一采用 JSON 和 HTTPS。实际接口参数、分页、错误码和响应结构应在 API-SPEC.md 中进一步确定。
+- 统一采用 JSON 和 HTTPS，字段名使用 camelCase。目录接口返回 ETag，客户端带 If-None-Match 时未变化返回 304。
+- 错误响应：`{"error": {"code": "...", "message": "..."}}`，HTTP 状态码表示类别（422 参数错误、429 请求过多、500 服务器错误）。
+- 应用的 `id` 是稳定的字符串标识（slug），电视端以它关联下载任务和收藏。
+- 版本信息包含：packageName、versionName、versionCode、minSdk、abis、sizeBytes、sha256、signerSha256、downloadUrl。downloadUrl 指向静态文件 `/files/apks/{sha256}.apk`。
+- 首页分组由电视端生成：精选（管理员标记）、最近更新（按发布时间，最多 12 个）、各分类；空分组不显示。
+
+目录响应结构（分类和应用已按后台排序返回）：
+```json
+{"categories": [{"id": "video", "name": "影音娱乐", "sortOrder": 1}],
+ "apps": [{"id": "slug", "packageName": "", "name": "", "summary": "", "description": "",
+   "categoryId": "video", "featured": true, "sortOrder": 1, "iconUrl": null,
+   "version": {"packageName": "", "versionName": "", "versionCode": 1, "minSdk": 28, "abis": ["armeabi-v7a"],
+     "sizeBytes": 1, "sha256": "", "signerSha256": "", "downloadUrl": "https://…/files/apks/{sha256}.apk",
+     "compatibility": "verified | spec_match | unverified", "testDeviceNotes": null,
+     "knownIssues": null, "releaseNotes": null, "publishedAt": "2026-11-06T08:00:00Z"}}]}
+```
+- `abis` 为空数组表示安装包不含原生库，任何 CPU 架构都可安装。未知的 `compatibility` 值按“尚未验证”显示。
+- 只输出已上架且有已发布版本的应用。ETag 为响应体的 SHA-256（强 ETag），响应带 `Cache-Control: no-cache`。
+- 电视端缓存（`core/catalog/`）：最近一次成功的响应原文和 ETag 存为一个文件（先写临时文件再替换）。启动时先显示缓存再后台刷新；304 沿用缓存；刷新失败时有缓存继续显示并轻提示，无缓存显示错误页和“重试”。顶层结构损坏视为失败且不覆盖缓存；单个应用字段不合法只跳过该应用。
 
 ## 6. 数据库设计
-核心数据表：
-- apps：应用基本资料。
-- app_versions：版本和安装包信息。
-- categories：分类。
-- compatibility_tests：兼容性测试。
-- feedback：用户反馈。
-- download_events：必要的下载统计。
-- admin_users：管理员账号。
+核心数据表（SQLite）：
+- categories：分类（slug、名称、排序）。
+- apps：应用资料（slug、包名唯一、名称、简介、说明、分类、是否精选、是否上架、排序、可选图标）。
+- app_versions：版本和安装包信息，同时记录兼容性（已实测 / 参数匹配 / 尚未验证、测试设备说明、已知问题）和发布状态（草稿 / 已发布 / 已撤回 / 历史版本）。
+- feedback：用户反馈（类型、可选应用、描述、设备型号、Android 版本、客户端版本、处理状态、处理说明）。
+- users：管理员账号（Laravel 默认表，只有管理员，不开放注册）。
 
-版本表必须保存包名、版本号、versionCode、最低 SDK、CPU ABI、文件大小、SHA-256、签名证书指纹和文件地址。
+版本表必须保存包名、versionName、versionCode、最低 SDK、CPU ABI、文件大小、SHA-256、签名证书指纹和文件地址。同一应用同一 versionCode 只能有一条记录；每个应用同时最多一个已发布版本，发布新版本时旧版本自动变为历史版本并保留文件。上传的安装包包名必须与应用一致，签名必须与该应用已发布过的版本一致，versionCode 不得低于已发布版本。
+
+首版不做下载统计表，需要时再增加。
 
 ## 7. 下载架构
 下载器负责下载任务管理、进度和速度统计、暂停和继续、失败重试、HTTP Range 断点续传、临时文件管理及 SHA-256 校验。
@@ -166,10 +182,10 @@ APKM、APKS、XAPK 不等于 Android 原生 APK，必须单独处理。
 只管理本商店安装的应用；校验包名和签名；签名不一致禁止覆盖；不自动降级；更新失败保留原应用；明确展示版本信息。
 
 ## 10. 安全设计
-后台管理员认证、上传文件大小和类型限制、SHA-256 校验、签名信息检查、操作日志、API 错误处理。密钥和凭据不得提交到 Git。未获授权的安装包不得公开分发。
+后台管理员认证、上传文件大小和类型限制、SHA-256 校验、签名信息检查、关键后台操作（发布、撤回、删除）写入 Laravel 应用日志（首版不建日志表）、API 错误处理。密钥和凭据不得提交到 Git。未获授权的安装包不得公开分发。
 
 ## 11. 部署规划
-开发阶段使用现有 VPS 或本地环境。内测阶段部署 API、数据库和文件存储。正式阶段根据大陆访问情况评估云服务器、域名备案、对象存储和 CDN。
+开发阶段在 Windows 本机运行和测试。里程碑测试 1 前部署到用户的 1Panel 服务器：创建 PHP 运行环境和网站，申请 HTTPS 证书，网站根目录指向 Laravel 的 `public/`，安装包目录由 OpenResty 直接提供静态下载。正式阶段再根据大陆访问情况评估域名备案、对象存储和 CDN。
 
 ## 12. 技术验证
 正式开发前完成三个验证：

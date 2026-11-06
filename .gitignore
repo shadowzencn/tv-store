@@ -28,6 +28,7 @@ captures/
 .cxx/
 local.properties
 *.apk
+!server/tests/Fixtures/apk/*.apk
 *.aab
 *.ap_
 *.dex

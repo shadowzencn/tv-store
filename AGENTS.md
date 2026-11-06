@@ -17,9 +17,8 @@
 
 ## 二、技术栈约束
 电视端：Kotlin、Jetpack Compose for TV、Room、OkHttp、WorkManager、Android PackageInstaller。
-服务端：Python、FastAPI、PostgreSQL。
-管理后台：React、Vite、TypeScript。
-部署：Docker Compose。
+服务端和管理后台：同一个 Laravel 13 项目（PHP 8.4），管理后台使用 Filament 5，数据库使用 SQLite。
+部署：用户服务器上的 1Panel（OpenResty 直接提供安装包静态下载）。
 未经用户批准，不得更换技术栈。
 
 ## 三、电视端要求
@@ -29,7 +28,7 @@
 4. 焦点状态必须清晰可见。
 5. 页面切换后合理恢复焦点。
 6. 保证远距离观看时文字清晰。
-7. 日常以电脑端自动化测试（单元测试、Robolectric、构建、lint）验证；TCL Q10L 实机验证只在里程碑进行（阶段 3+4 接入真实接口后一次、阶段 6 完整联调一次），由用户执行。
+7. 日常以电脑端自动化测试（单元测试、Robolectric、构建、lint）验证；TCL Q10L 实机验证只在里程碑进行（阶段 4 服务端与管理后台完成、电视端接入真实接口后一次，即里程碑测试 1；阶段 5 完整联调后一次，即里程碑测试 2），由用户执行。
 8. 遵循 Emotn 风格 A 视觉规范。
 9. 不擅自增加左侧固定导航栏。
 10. 不制作广告式首页。

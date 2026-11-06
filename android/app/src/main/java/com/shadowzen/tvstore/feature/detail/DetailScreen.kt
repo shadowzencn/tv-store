@@ -67,7 +67,7 @@ fun DetailScreen(
             InfoLine("版本", app.versionName)
             InfoLine("大小", formatFileSize(app.sizeBytes))
             InfoLine("最低系统", "${androidVersionName(app.minSdk)} 及以上")
-            InfoLine("CPU 架构", app.abis.joinToString(" / "))
+            InfoLine("CPU 架构", if (app.abis.isEmpty()) "不限" else app.abis.joinToString(" / "))
             InfoLine("兼容状态", app.compatibility.label, compatibilityColor(app.compatibility))
 
             if (!app.supportsArmeabiV7a) {

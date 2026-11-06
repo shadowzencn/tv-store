@@ -37,14 +37,16 @@ import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.formatFileSize
-import com.shadowzen.tvstore.core.sample.SampleCatalog
 import com.shadowzen.tvstore.feature.detail.DetailScreen
 import com.shadowzen.tvstore.feature.downloads.DownloadsScreen
 import com.shadowzen.tvstore.feature.downloads.StatusLine
 import com.shadowzen.tvstore.feature.downloads.statusLineFor
+import com.shadowzen.tvstore.feature.home.CatalogGate
 import com.shadowzen.tvstore.feature.home.FEATURED_SHELF_ID
+import com.shadowzen.tvstore.feature.home.HomeContent
 import com.shadowzen.tvstore.feature.home.HomeFocusState
 import com.shadowzen.tvstore.feature.home.HomeScreen
+import com.shadowzen.tvstore.feature.home.buildHomeContent
 import com.shadowzen.tvstore.feature.home.homeFocusKey
 import com.shadowzen.tvstore.feature.installtest.InstallTestScreen
 import com.shadowzen.tvstore.feature.installtest.isInstallTestAvailable
@@ -78,10 +80,22 @@ fun TvStoreApp() {
             container.completedDownloads.collect { appId -> coordinator.installCompleted(appId) }
         }
     }
-    val homeFocusState = remember {
-        HomeFocusState(
-            initialFocusKey = SampleCatalog.featured.firstOrNull()?.let { homeFocusKey(FEATURED_SHELF_ID, it.id) },
-        )
+    val catalogState by container.catalogRepository.state.collectAsStateWithLifecycle()
+    val catalog = catalogState.catalog
+    val homeContent = remember(catalog) { catalog?.let(::buildHomeContent) }
+    val homeFocusState = remember { HomeFocusState() }
+    // 启动时和每次按“重试/刷新”后，让状态页的按钮获得焦点
+    var statusFocusPending by remember { mutableStateOf(true) }
+
+    // 目录第一次可用时把焦点交给首页第一张卡片；之后的后台刷新不再移动焦点
+    LaunchedEffect(homeContent) {
+        val content = homeContent ?: return@LaunchedEffect
+        if (!homeFocusState.initialFocusAssigned) {
+            firstFocusKey(content)?.let {
+                homeFocusState.pendingFocusKey = it
+                homeFocusState.initialFocusAssigned = true
+            }
+        }
     }
 
     Surface(
@@ -91,14 +105,14 @@ fun TvStoreApp() {
             contentColor = StoreColors.TextPrimary,
         ),
     ) {
-        val detailApp = detailAppId?.let(SampleCatalog::findApp)
+        val detailApp = detailAppId?.let { catalog?.findApp(it) }
         if (detailApp != null) {
             BackHandler { detailAppId = null }
             val task = tasks.firstOrNull { it.appId == detailApp.id }
             val notice = notices[detailApp.id]
             DetailScreen(
                 app = detailApp,
-                categoryName = SampleCatalog.categoryName(detailApp.categoryId),
+                categoryName = catalog?.categoryName(detailApp.categoryId).orEmpty(),
                 task = task,
                 statusLine = notice?.let { StatusLine(it, StoreColors.Warning) }
                     ?: task?.let { statusLineFor(it, installStates[it.appId], null) },
@@ -117,18 +131,34 @@ fun TvStoreApp() {
                 selectedTab = selectedTab,
                 tabFocusRequesters = tabFocusRequesters,
                 onTabFocused = { selectedTab = it },
+                // 有可显示的目录但刷新失败时只给轻提示；没有目录时首页本身显示错误状态
+                offlineHint = if (catalog != null && catalogState.errorMessage != null) {
+                    "无法更新目录，正在显示上次获取的内容"
+                } else {
+                    null
+                },
             )
             when (selectedTab) {
-                TopTab.HOME -> HomeScreen(
-                    featured = SampleCatalog.featured,
-                    shelves = SampleCatalog.shelves,
-                    categoryName = SampleCatalog::categoryName,
-                    focusState = homeFocusState,
-                    onAppClick = { shelfId, app ->
-                        homeFocusState.pendingFocusKey = homeFocusKey(shelfId, app.id)
-                        detailAppId = app.id
+                TopTab.HOME -> CatalogGate(
+                    state = catalogState,
+                    isEmpty = { homeContent?.isEmpty ?: true },
+                    onRetry = {
+                        statusFocusPending = true
+                        container.refreshCatalog()
                     },
-                )
+                    requestFocus = statusFocusPending,
+                    onFocusRequested = { statusFocusPending = false },
+                ) { readyCatalog ->
+                    HomeScreen(
+                        content = homeContent ?: buildHomeContent(readyCatalog),
+                        categoryName = readyCatalog::categoryName,
+                        focusState = homeFocusState,
+                        onAppClick = { shelfId, app ->
+                            homeFocusState.pendingFocusKey = homeFocusKey(shelfId, app.id)
+                            detailAppId = app.id
+                        },
+                    )
+                }
                 TopTab.DOWNLOADS -> DownloadsScreen(
                     tasks = tasks,
                     installStates = installStates,
@@ -137,7 +167,7 @@ fun TvStoreApp() {
                         "可用空间 ${formatFileSize(container.storageSpace.availableBytes(context.filesDir))}"
                     },
                     onAction = { action, task ->
-                        coordinator.perform(action, task.appId, task, SampleCatalog.findApp(task.appId))
+                        coordinator.perform(action, task.appId, task, catalog?.findApp(task.appId))
                     },
                     onDelete = { task -> coordinator.delete(task.appId) },
                     onListEmptied = { tabFocusRequesters.getValue(TopTab.DOWNLOADS).requestFocus() },
@@ -158,6 +188,7 @@ private fun TopBar(
     selectedTab: TopTab,
     tabFocusRequesters: Map<TopTab, FocusRequester>,
     onTabFocused: (TopTab) -> Unit,
+    offlineHint: String?,
 ) {
     Row(
         modifier = Modifier
@@ -192,9 +223,15 @@ private fun TopBar(
             }
         }
         Spacer(Modifier.weight(1f))
-        Text(text = "本地示例数据", fontSize = 14.sp, color = StoreColors.TextSecondary)
+        if (offlineHint != null) {
+            Text(text = offlineHint, fontSize = 16.sp, color = StoreColors.Warning)
+        }
     }
 }
+
+private fun firstFocusKey(content: HomeContent): String? =
+    content.featured.firstOrNull()?.let { homeFocusKey(FEATURED_SHELF_ID, it.id) }
+        ?: content.shelves.firstOrNull()?.let { shelf -> shelf.apps.firstOrNull()?.let { homeFocusKey(shelf.id, it.id) } }
 
 @Composable
 private fun PlaceholderPage(tab: TopTab) {

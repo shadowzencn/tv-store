@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -27,6 +29,27 @@ abstract class CopyInstallTestApks : DefaultTask() {
     }
 }
 
+/**
+ * 商店服务端基础地址（以 / 结尾），按构建类型读取：
+ * Gradle 属性或 local.properties 中的 tvstore.serverUrl.<构建类型>，其次 tvstore.serverUrl，都没有时使用占位地址。
+ * local.properties 不进 Git，适合填写自己的服务器地址。
+ */
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
+}
+
+fun storeServerUrl(buildType: String): String {
+    val keys = listOf("tvstore.serverUrl.$buildType", "tvstore.serverUrl")
+    val url = keys.firstNotNullOfOrNull { key ->
+        providers.gradleProperty(key).orNull ?: localProperties.getProperty(key)
+    }?.trim() ?: "https://tvstore.example.invalid/"
+    require(url.startsWith("https://") || url.startsWith("http://")) { "服务端地址必须以 http(s):// 开头：$url" }
+    require(url.endsWith("/")) { "服务端地址必须以 / 结尾：$url" }
+    require('"' !in url && '\\' !in url) { "服务端地址含有非法字符：$url" }
+    return url
+}
+
 val copyInstallTestApks = tasks.register<CopyInstallTestApks>("copyInstallTestApks") {
     dependsOn(":installtest:assembleRelease")
     apkDirectory.from(rootDir.resolve("installtest/build/outputs/apk"))
@@ -45,7 +68,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "STORE_SERVER_URL", "\"${storeServerUrl("debug")}\"")
+        }
         release {
+            buildConfigField("String", "STORE_SERVER_URL", "\"${storeServerUrl("release")}\"")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
@@ -56,6 +83,7 @@ android {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
+            buildConfigField("String", "STORE_SERVER_URL", "\"${storeServerUrl("internal")}\"")
         }
     }
 
@@ -66,6 +94,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
