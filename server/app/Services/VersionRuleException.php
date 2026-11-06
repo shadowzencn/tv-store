@@ -16,6 +16,8 @@ class VersionRuleException extends RuntimeException
 
     public const DUPLICATE_FILE = 'duplicate_file';
 
+    public const PACKAGE_TAKEN = 'package_taken';
+
     public const INVALID_STATUS = 'invalid_status';
 
     public function __construct(public readonly string $reason, string $message)

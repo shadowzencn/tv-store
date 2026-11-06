@@ -4,11 +4,15 @@ namespace App\Filament\Resources\AppVersions\Schemas;
 
 use App\Enums\Compatibility;
 use App\Models\AppVersion;
+use App\Models\Category;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Number;
 
@@ -22,18 +26,43 @@ class AppVersionForm
                     ->columnSpanFull()
                     ->columns(2)
                     ->schema([
+                        ToggleButtons::make('upload_target')
+                            ->label('上传到')
+                            ->options([
+                                'existing' => '已有应用',
+                                'new' => '新应用',
+                            ])
+                            ->default('existing')
+                            ->inline()
+                            ->live()
+                            ->visibleOn('create')
+                            ->columnSpanFull(),
                         Select::make('app_id')
                             ->label('应用')
                             ->relationship('app', 'name')
                             ->searchable()
                             ->preload()
                             ->default(fn (): ?string => request()->query('app'))
-                            ->required()
+                            ->required(fn (Get $get): bool => $get('upload_target') !== 'new')
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'edit' || $get('upload_target') !== 'new')
                             ->disabledOn('edit')
                             ->columnSpanFull(),
+                        Select::make('category_id')
+                            ->label('分类')
+                            ->options(fn () => Category::query()->orderBy('sort_order')->pluck('name', 'id'))
+                            ->required(fn (Get $get): bool => $get('upload_target') === 'new')
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && $get('upload_target') === 'new'),
+                        Toggle::make('is_listed')
+                            ->label('上架')
+                            ->default(true)
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && $get('upload_target') === 'new'),
+                        Toggle::make('is_featured')
+                            ->label('精选')
+                            ->default(false)
+                            ->visible(fn (Get $get, string $operation): bool => $operation === 'create' && $get('upload_target') === 'new'),
                         FileUpload::make('apk')
                             ->label('APK 文件')
-                            ->helperText('只接受 .apk，最大 '.config('tvstore.max_apk_mb').' MB。上传后自动识别包名、版本、签名等信息，这些信息不能手动修改。')
+                            ->helperText('只接受 .apk，最大 '.config('tvstore.max_apk_mb').' MB。上传后自动识别包名、版本、签名等信息，这些信息不能手动修改；选择「新应用」时会用识别出的包名和名称自动创建应用。')
                             ->required()
                             ->storeFiles(false)
                             ->maxSize(config('tvstore.max_apk_mb') * 1024)

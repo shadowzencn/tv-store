@@ -8,6 +8,7 @@ use App\Filament\Resources\AppVersions\Pages\CreateAppVersion;
 use App\Filament\Resources\AppVersions\Pages\EditAppVersion;
 use App\Filament\Resources\AppVersions\Pages\ListAppVersions;
 use App\Models\AppVersion;
+use App\Models\Category;
 use App\Models\StoreApp;
 use App\Providers\AppServiceProvider;
 use App\Services\AppVersionPublisher;
@@ -49,6 +50,20 @@ class AppVersionAdminTest extends AdminTestCase
             ->fillForm([
                 'app_id' => $this->storeApp->id,
                 'apk' => UploadedFile::fake()->create($fileName, 64, 'application/vnd.android.package-archive'),
+                ...$form,
+            ])
+            ->call('create');
+    }
+
+    private function uploadNewApp(array $info = [], array $form = []): Testable
+    {
+        $this->inspector->info = FakeApkInspector::info($info);
+
+        return Livewire::test(CreateAppVersion::class)
+            ->fillForm([
+                'upload_target' => 'new',
+                'category_id' => Category::factory()->create()->id,
+                'apk' => UploadedFile::fake()->create('new.apk', 64, 'application/vnd.android.package-archive'),
                 ...$form,
             ])
             ->call('create');
@@ -172,6 +187,85 @@ class AppVersionAdminTest extends AdminTestCase
             ->call('create')
             ->assertHasFormErrors(['apk']);
 
+        $this->assertDatabaseCount('app_versions', 0);
+    }
+
+    public function test_upload_can_create_a_new_app_in_one_step(): void
+    {
+        $category = Category::factory()->create(['id' => 'video']);
+
+        $this->uploadNewApp(
+            ['packageName' => 'com.example.myPlayer', 'label' => 'My Player', 'sha256' => str_repeat('d', 64)],
+            ['category_id' => $category->id, 'is_listed' => false, 'is_featured' => true],
+        )->assertHasNoFormErrors()->assertNotified('应用已创建，版本已保存为草稿');
+
+        $app = StoreApp::query()->findOrFail('myplayer');
+        $this->assertSame('com.example.myPlayer', $app->package_name);
+        $this->assertSame('My Player', $app->name);
+        $this->assertSame('video', $app->category_id);
+        $this->assertFalse($app->is_listed);
+        $this->assertTrue($app->is_featured);
+        $this->assertNull($app->summary);
+        $this->assertNull($app->description);
+
+        $version = AppVersion::query()->sole();
+        $this->assertSame('myplayer', $version->app_id);
+        $this->assertSame('com.example.myPlayer', $version->package_name);
+        $this->assertSame(VersionStatus::Draft, $version->status);
+        $this->files->assertExists($version->file_path);
+        $this->assertNoTemporaryFiles();
+    }
+
+    public function test_new_app_defaults_to_listed_and_uses_package_name_when_label_is_missing(): void
+    {
+        $this->uploadNewApp(['packageName' => 'tv.example.remote', 'label' => null, 'sha256' => str_repeat('e', 64)])
+            ->assertHasNoFormErrors();
+
+        $app = StoreApp::query()->findOrFail('remote');
+        $this->assertSame('tv.example.remote', $app->name);
+        $this->assertTrue($app->is_listed);
+        $this->assertFalse($app->is_featured);
+    }
+
+    public function test_new_app_upload_rejects_a_taken_package_name(): void
+    {
+        $this->uploadNewApp(['packageName' => 'com.example.demo'])
+            ->assertHasFormErrors(['apk'])
+            ->assertSee('该包名的应用已存在');
+
+        $this->assertDatabaseCount('apps', 1);
+        $this->assertDatabaseCount('app_versions', 0);
+        $this->assertSame([], $this->files->allFiles());
+        $this->assertNoTemporaryFiles();
+    }
+
+    public function test_new_app_slug_gets_a_suffix_on_collision(): void
+    {
+        StoreApp::factory()->create(['id' => 'myplayer', 'package_name' => 'com.other.myplayer']);
+        StoreApp::factory()->create(['id' => 'myplayer-2', 'package_name' => 'com.other.myplayer2']);
+
+        $this->uploadNewApp(['packageName' => 'com.example.myPlayer', 'sha256' => str_repeat('f', 64)])
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('apps', ['id' => 'myplayer-3', 'package_name' => 'com.example.myPlayer']);
+        $this->assertSame('myplayer-3', AppVersion::query()->sole()->app_id);
+    }
+
+    public function test_new_app_requires_a_category(): void
+    {
+        $this->inspector->info = FakeApkInspector::info(['packageName' => 'com.example.fresh']);
+
+        Livewire::test(CreateAppVersion::class)
+            ->fillForm([
+                'upload_target' => 'new',
+                'category_id' => null,
+                'apk' => UploadedFile::fake()->create('new.apk', 64),
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['category_id' => 'required']);
+
+        $this->assertSame([], $this->inspector->inspectedPaths);
+        $this->assertDatabaseCount('apps', 1);
         $this->assertDatabaseCount('app_versions', 0);
     }
 

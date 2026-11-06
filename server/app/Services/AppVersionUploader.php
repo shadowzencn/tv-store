@@ -5,12 +5,15 @@ namespace App\Services;
 use App\Models\AppVersion;
 use App\Models\StoreApp;
 use App\Providers\AppServiceProvider;
+use App\Support\Apk\ApkInfo;
 use App\Support\Apk\ApkInspectionException;
 use App\Support\Apk\ApkInspector;
 use Illuminate\Http\File;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -36,7 +39,59 @@ class AppVersionUploader
      */
     public function upload(StoreApp $app, string $uploadedPath, array $details = []): AppVersion
     {
+        return $this->store($app, $this->inspector->inspect($uploadedPath), $uploadedPath, $details);
+    }
+
+    /**
+     * Creates the StoreApp from the identified APK and then stores the first version.
+     *
+     * @param  array<string, mixed>  $appAttributes  category_id, is_listed, is_featured
+     * @param  array<string, mixed>  $details  values for EDITABLE_FIELDS
+     *
+     * @throws ApkInspectionException
+     * @throws VersionRuleException
+     */
+    public function uploadToNewApp(string $uploadedPath, array $appAttributes, array $details = []): AppVersion
+    {
         $info = $this->inspector->inspect($uploadedPath);
+
+        if (StoreApp::query()->where('package_name', $info->packageName)->exists()) {
+            throw new VersionRuleException(
+                VersionRuleException::PACKAGE_TAKEN,
+                '该包名的应用已存在，请改用已有应用上传。',
+            );
+        }
+
+        $app = new StoreApp;
+        $app->forceFill([
+            'id' => self::uniqueSlugFromPackage($info->packageName),
+            'package_name' => $info->packageName,
+            'name' => $info->label ?: $info->packageName,
+            'category_id' => $appAttributes['category_id'],
+            'is_listed' => (bool) ($appAttributes['is_listed'] ?? true),
+            'is_featured' => (bool) ($appAttributes['is_featured'] ?? false),
+        ]);
+
+        return DB::transaction(function () use ($app, $info, $uploadedPath, $details): AppVersion {
+            $app->save();
+
+            Log::info('App created from APK upload', [
+                'app_id' => $app->id,
+                'package_name' => $app->package_name,
+                'admin_id' => Auth::id(),
+            ]);
+
+            return $this->store($app, $info, $uploadedPath, $details);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $details
+     *
+     * @throws VersionRuleException
+     */
+    private function store(StoreApp $app, ApkInfo $info, string $uploadedPath, array $details): AppVersion
+    {
         $sha256 = strtolower($info->sha256);
 
         $version = new AppVersion([
@@ -75,5 +130,26 @@ class AppVersionUploader
         ]);
 
         return $version;
+    }
+
+    /**
+     * Slug rule: take the segment after the last "." of the package name, lowercase it and
+     * replace every run of characters outside [a-z0-9] with a single "-", then trim "-"
+     * from both ends (com.example.myPlayer becomes "myplayer", com.foo.My_App becomes "my-app").
+     * Empty results fall back to "app"; taken slugs get "-2", "-3", ... appended.
+     */
+    private static function uniqueSlugFromPackage(string $packageName): string
+    {
+        $base = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower(Str::afterLast($packageName, '.'))), '-');
+        $base = $base === '' ? 'app' : substr($base, 0, 60);
+
+        $slug = $base;
+        $suffix = 2;
+        while (StoreApp::query()->whereKey($slug)->exists()) {
+            $slug = $base.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $slug;
     }
 }
