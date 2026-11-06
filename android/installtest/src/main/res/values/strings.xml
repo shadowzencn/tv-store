@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">安装测试</string>
+    <string name="signer_label">调试证书</string>
+    <string name="content">TV Store 安装测试应用\n版本 %1$s\n签名：%2$s\n\n按返回键退出</string>
+</resources>

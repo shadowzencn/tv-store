@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="signer_label">另一个测试证书（用于签名冲突测试）</string>
+</resources>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Android 11 起需要声明才能查询测试包的安装状态和启动入口 -->
+    <queries>
+        <package android:name="com.shadowzen.tvstore.installtest" />
+    </queries>
+
+</manifest>

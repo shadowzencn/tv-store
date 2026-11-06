@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +37,8 @@ import com.shadowzen.tvstore.feature.home.FEATURED_SHELF_ID
 import com.shadowzen.tvstore.feature.home.HomeFocusState
 import com.shadowzen.tvstore.feature.home.HomeScreen
 import com.shadowzen.tvstore.feature.home.homeFocusKey
+import com.shadowzen.tvstore.feature.installtest.InstallTestScreen
+import com.shadowzen.tvstore.feature.installtest.isInstallTestAvailable
 
 enum class TopTab(val title: String) {
     HOME("首页"),
@@ -51,6 +54,8 @@ fun TvStoreApp() {
     var selectedTab by rememberSaveable { mutableStateOf(TopTab.HOME) }
     var detailAppId by rememberSaveable { mutableStateOf<String?>(null) }
     val tabFocusRequesters = remember { TopTab.entries.associateWith { FocusRequester() } }
+    val context = LocalContext.current
+    val installTestAvailable = remember { isInstallTestAvailable(context) }
     val homeFocusState = remember {
         HomeFocusState(
             initialFocusKey = SampleCatalog.featured.firstOrNull()?.let { homeFocusKey(FEATURED_SHELF_ID, it.id) },
@@ -93,6 +98,11 @@ fun TvStoreApp() {
                         detailAppId = app.id
                     },
                 )
+                TopTab.SETTINGS -> if (installTestAvailable) {
+                    InstallTestScreen()
+                } else {
+                    PlaceholderPage(tab = selectedTab)
+                }
                 else -> PlaceholderPage(tab = selectedTab)
             }
         }

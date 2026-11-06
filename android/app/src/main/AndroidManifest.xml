@@ -9,6 +9,8 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:allowBackup="false"
         android:banner="@drawable/app_banner"
@@ -27,6 +29,10 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".core.installer.InstallResultReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

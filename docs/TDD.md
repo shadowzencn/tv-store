@@ -77,7 +77,7 @@ tv-store/
 └── admin/
 ```
 
-Android 初期采用单一 Gradle 模块，按功能划分代码包：
+商店客户端采用单一 Gradle 模块 `app`，按功能划分代码包（`android/installtest/` 是仅用于安装验证的测试应用模块，不属于商店客户端）：
 ```text
 android/app/src/main/java/
 └── com/shadowzen/tvstore/
@@ -96,7 +96,8 @@ android/app/src/main/java/
     │   ├── detail/
     │   ├── downloads/
     │   ├── favorites/
-    │   └── settings/
+    │   ├── settings/
+    │   └── installtest/    # 安装验证页面，仅 internal 版显示
     ├── TvStoreApp.kt       # 顶部导航和页面切换
     └── MainActivity.kt
 ```
@@ -137,6 +138,15 @@ WorkManager 负责持久化任务调度和恢复，不代替下载器本身。
 首版支持普通单 APK。使用 Android PackageInstaller 调用系统安装流程。普通第三方应用不能默认静默安装，必须尊重系统安装授权和用户确认。
 后续支持分包安装时，解析安装包容器，获取 base APK 和 split APK，检查包名、版本和签名一致，再使用 PackageInstaller Session 安装。
 APKM、APKS、XAPK 不等于 Android 原生 APK，必须单独处理。
+
+当前实现（`core/installer/`）：
+- `ApkInspector`：读取安装包和已安装应用的包名、versionCode 和签名证书 SHA-256（含密钥轮换历史）。
+- `InstallPolicy`：安装前判断。包名必须与预期一致；签名不一致拒绝；versionCode 更低拒绝（不自动降级）；允许全新安装、升级和同版本重装。拒绝时不调用系统安装。
+- `ApkInstaller`：创建 PackageInstaller 会话写入 APK 并提交；`InstallResultReceiver` 收到 STATUS_PENDING_USER_ACTION 时打开系统确认界面，最终结果经 `InstallEvents` 送到界面。
+- 未允许“安装未知应用”时先引导到系统设置；设备没有该设置页面时直接提交，由系统决定是否提示。
+- 软件包可见性：internal 版只对测试包声明 `<queries>`。正式版查询其他应用的方式在接入真实应用数据时确定。
+
+安装验证（internal 版专用）：`android/installtest/` 模块产出 v1、v2 和异签 v2 三个测试 APK，只打包进 internal 版 assets；“设置”页显示安装测试入口。异签证书在构建时生成到 `build/`，不进 Git，仅用于签名冲突测试。
 
 ## 9. 更新机制
 只管理本商店安装的应用；校验包名和签名；签名不一致禁止覆盖；不自动降级；更新失败保留原应用；明确展示版本信息。

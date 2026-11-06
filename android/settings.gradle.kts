@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "tv-store"
 include(":app")
+include(":installtest")
