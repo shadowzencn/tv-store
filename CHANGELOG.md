@@ -17,6 +17,8 @@
 - PRD / TDD：确定最低版本 Android 9（minSdk 28）、重点适配 Android 11、重点架构 armeabi-v7a、包名 com.shadowzen.tvstore。
 
 ### Added
+- 下载与安装统计（`POST /api/v1/events` + Filament 后台统计面板）：服务端新增 `app_events` 表与 `AppEventResource`（「下载与安装统计」菜单，记录用户 IP、电视设备型号、Android 版本、CPU 架构、应用版本及下载完成/安装成功状态，并在「应用」列表显示各应用累计下载与安装次数）；电视端在 `StoreHttpClient` 注入包含电视品牌型号、系统版本与架构的标准 `User-Agent`，并在下载校验完成与系统安装成功时通过 `EventReporter` 自动异步上报。
+- 交互与模拟器体验优化：新增 `PointerClick` 修饰符为全站所有 `androidx.tv.material3` 组件补齐鼠标与触控点击响应；搜索页左侧内置 6×6 `A–Z`/`0–9` 屏幕软键盘与退格/清空键；修复问题反馈页输入框方向键焦点被困问题；为商店客户端补齐位图 `ic_launcher.png` 图标。
 - 阶段 5 完整联调（电视端全功能闭环）：新增分类页（`feature/category/`，顶部全部分类与各分类筛选胶囊、网格展示与详情返回焦点恢复）、搜索页（`feature/search/`，支持中英文、多关键词与子序列模糊搜索，本地持久化搜索历史与一键清除）、收藏功能（`feature/favorites/` 与详情页收藏按钮，按收藏时间倒序本地原子文件持久化，支持查看详情与取消收藏）、本商店应用更新检查（只管理本商店安装过的应用，对比目录最新 `versionCode` 与签名一致性，在详情页、下载页和设置页提示并触发升级下载；已卸载应用自动清理失效已安装记录）、商店客户端自身更新（`core/network/ClientVersionApi.kt`，对接 `GET /api/v1/client/version` 并复用下载与安装流程升级客户端）、用户反馈（`core/network/FeedbackApi.kt` 与 `feature/settings/FeedbackScreen.kt`，对接 `POST /api/v1/feedback`，支持 5 类问题、关联应用、快捷短语点选与自定义说明）以及设置页（`feature/settings/SettingsScreen.kt`，汇总应用更新、客户端更新、残留下载包清理、搜索历史清除、问题反馈、关于信息与 internal 安装测试入口）。
 - 服务端 `php artisan tvstore:extract-icons` 命令：为没有图标的应用从已存安装包补提取启动图标（优先已发布版本，否则取版本号最大的版本）。只支持位图图标；只有自适应图标（XML）且资源名混淆的安装包提取不到，需在编辑页手动补传。图标存储逻辑抽为 AppIconStore 共用服务，上传流程行为不变。服务端测试 100 个全部通过。
 - 电视端应用图标显示：新增 Coil 3.6.3（coil-compose + coil-network-okhttp；Compose 标准图片加载库，内存/磁盘缓存开箱即用，网络层复用 OkHttp，Apache-2.0）。目录解析新增 app 级 iconUrl 字段（只接受 http(s) 绝对地址或以 / 开头的路径，其他取值回退占位）；AppIcon 组件在占位图标上叠加网络图标层，无 iconUrl、加载中、加载失败均显示原占位图，首页精选、最近更新、分类列表、详情页头部和下载管理列表自动生效。同时在 `AndroidManifest.xml` 中声明 `ACTION_MAIN` 软件包可见性（`<queries>`），修复 Android 11+ 安装后无法查询和打开已安装应用的问题。电视端测试 74 个全部通过，lint 保持 4 个已知警告，assembleInternal 构建成功。

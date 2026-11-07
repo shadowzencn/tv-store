@@ -14,7 +14,7 @@ TCL Q10L。
 - 数据库：SQLite
 - 安装包存储：服务器本地磁盘，由 OpenResty 直接提供静态下载（支持 HTTP Range）
 - 部署：用户服务器上的 1Panel
-- 客户端接口：`GET /api/v1/catalog`、`GET /api/v1/client/version`、`POST /api/v1/feedback`（详见 docs/TDD.md）
+- 客户端接口：`GET /api/v1/catalog`、`GET /api/v1/client/version`、`POST /api/v1/feedback`、`POST /api/v1/events`（详见 docs/TDD.md）
 
 ## 项目目录
 ```text
