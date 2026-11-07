@@ -63,8 +63,20 @@ android {
         applicationId = "com.shadowzen.tvstore"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.0.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystoreFile = rootProject.file("tvstore-signing.keystore")
+            if (keystoreFile.isFile) {
+                storeFile = keystoreFile
+                storePassword = localProperties.getProperty("tvstore.storePassword", "android")
+                keyAlias = localProperties.getProperty("tvstore.keyAlias", "androiddebugkey")
+                keyPassword = localProperties.getProperty("tvstore.keyPassword", "android")
+            }
+        }
     }
 
     buildTypes {
@@ -72,6 +84,12 @@ android {
             buildConfigField("String", "STORE_SERVER_URL", "\"${storeServerUrl("debug")}\"")
         }
         release {
+            val releaseKeystore = rootProject.file("tvstore-signing.keystore")
+            signingConfig = if (releaseKeystore.isFile) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
             buildConfigField("String", "STORE_SERVER_URL", "\"${storeServerUrl("release")}\"")
             isMinifyEnabled = true
             isShrinkResources = true
