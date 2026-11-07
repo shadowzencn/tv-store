@@ -63,7 +63,7 @@ fun DetailScreen(
     Row(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = StoreDimens.SafeHorizontal + 24.dp, vertical = 48.dp),
+            .padding(horizontal = StoreDimens.SafeHorizontal + 24.dp, vertical = 28.dp),
     ) {
         AppIcon(app = app, size = 140.dp)
         Spacer(Modifier.width(40.dp))
@@ -72,10 +72,12 @@ fun DetailScreen(
                 .widthIn(max = 680.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            Text(text = app.name, fontSize = 34.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Text(text = app.summary, fontSize = 18.sp, color = StoreColors.TextSecondary)
-            Spacer(Modifier.height(24.dp))
+            Text(text = app.name, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            if (app.summary.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(text = app.summary, fontSize = 17.sp, color = StoreColors.TextSecondary)
+            }
+            Spacer(Modifier.height(14.dp))
 
             InfoLine("分类", categoryName)
             InfoLine("版本", app.versionName)
@@ -88,25 +90,27 @@ fun DetailScreen(
             }
 
             if (!app.supportsArmeabiV7a) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = "此版本不含 armeabi-v7a，不兼容 32 位设备（包括 TCL Q10L）。",
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     color = StoreColors.Warning,
                 )
             }
             app.knownIssues?.let { issues ->
-                Spacer(Modifier.height(8.dp))
-                Text(text = "已知问题：$issues", fontSize = 16.sp, color = StoreColors.Warning)
+                Spacer(Modifier.height(6.dp))
+                Text(text = "已知问题：$issues", fontSize = 15.sp, color = StoreColors.Warning)
             }
             app.releaseNotes?.let { releaseNotes ->
-                Spacer(Modifier.height(8.dp))
-                Text(text = "更新说明：$releaseNotes", fontSize = 15.sp, color = StoreColors.AccentSecondary)
+                Spacer(Modifier.height(6.dp))
+                Text(text = "更新说明：$releaseNotes", fontSize = 14.sp, color = StoreColors.AccentSecondary)
             }
 
-            Spacer(Modifier.height(20.dp))
-            Text(text = app.description, fontSize = 16.sp, color = StoreColors.TextSecondary, lineHeight = 24.sp)
-            Spacer(Modifier.height(32.dp))
+            if (app.description.isNotBlank()) {
+                Spacer(Modifier.height(12.dp))
+                Text(text = app.description, fontSize = 15.sp, color = StoreColors.TextSecondary, lineHeight = 22.sp)
+            }
+            Spacer(Modifier.height(18.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
@@ -135,25 +139,26 @@ fun DetailScreen(
                     }
                 }
             }
-            if (task != null && task.status != DownloadStatus.INSTALLED) {
-                Spacer(Modifier.height(16.dp))
-                StoreProgressBar(progress = task.progress ?: 0f, modifier = Modifier.width(420.dp))
-                Spacer(Modifier.height(6.dp))
-                Text(text = sizeLineFor(task), fontSize = 15.sp, color = StoreColors.TextSecondary)
-            }
             if (statusLine != null) {
-                Spacer(Modifier.height(12.dp))
-                Text(text = statusLine.text, fontSize = 16.sp, color = statusLine.color)
+                Spacer(Modifier.height(8.dp))
+                Text(text = statusLine.text, fontSize = 13.sp, color = statusLine.color)
             }
+            if (task != null && task.status != DownloadStatus.INSTALLED) {
+                Spacer(Modifier.height(8.dp))
+                StoreProgressBar(progress = task.progress ?: 0f, modifier = Modifier.width(420.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(text = sizeLineFor(task), fontSize = 13.sp, color = StoreColors.TextSecondary)
+            }
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
 @Composable
 private fun InfoLine(label: String, value: String, valueColor: Color = StoreColors.TextPrimary) {
-    Row(modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(text = label, fontSize = 17.sp, color = StoreColors.TextSecondary, modifier = Modifier.width(110.dp))
-        Text(text = value, fontSize = 17.sp, color = valueColor)
+    Row(modifier = Modifier.padding(vertical = 3.dp)) {
+        Text(text = label, fontSize = 16.sp, color = StoreColors.TextSecondary, modifier = Modifier.width(110.dp))
+        Text(text = value, fontSize = 16.sp, color = valueColor)
     }
 }
 
