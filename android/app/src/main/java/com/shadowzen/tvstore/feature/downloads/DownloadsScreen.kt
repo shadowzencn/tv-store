@@ -40,6 +40,7 @@ import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.StoreProgressBar
 import com.shadowzen.tvstore.core.installer.InstallState
+import com.shadowzen.tvstore.core.model.StoreApp
 
 @Composable
 fun DownloadsScreen(
@@ -52,6 +53,7 @@ fun DownloadsScreen(
     onListEmptied: () -> Unit,
     modifier: Modifier = Modifier,
     iconUrl: (appId: String) -> String? = { null },
+    catalogApp: (appId: String) -> StoreApp? = { null },
 ) {
     val primaryFocus = remember { mutableMapOf<String, FocusRequester>() }
     // 删除后把焦点移到相邻任务，避免焦点随被删除的按钮一起消失
@@ -104,12 +106,22 @@ fun DownloadsScreen(
                         primaryFocus[task.appId] = requester
                         onDispose { primaryFocus.remove(task.appId) }
                     }
+                    val app = catalogApp(task.appId)
+                    val latestCode = app?.download?.versionCode
+                    val action = primaryActionFor(task, hasPackage = true, latestVersionCode = latestCode)
                     DownloadRow(
                         task = task,
-                        iconUrl = iconUrl(task.appId),
-                        statusLine = statusLineFor(task, installStates[task.appId], notices[task.appId]),
+                        action = action,
+                        iconUrl = app?.iconUrl ?: iconUrl(task.appId),
+                        statusLine = statusLineFor(
+                            task = task,
+                            installState = installStates[task.appId],
+                            notice = notices[task.appId],
+                            latestVersionName = app?.versionName,
+                            latestVersionCode = latestCode,
+                        ),
                         primaryFocusRequester = requester,
-                        onPrimary = { onAction(primaryActionFor(task, hasPackage = true), task) },
+                        onPrimary = { onAction(action, task) },
                         onDelete = {
                             focusIndexAfterDelete = index
                             onDelete(task)
@@ -124,6 +136,7 @@ fun DownloadsScreen(
 @Composable
 private fun DownloadRow(
     task: DownloadTask,
+    action: DownloadAction,
     iconUrl: String?,
     statusLine: StatusLine,
     primaryFocusRequester: FocusRequester,
@@ -131,7 +144,6 @@ private fun DownloadRow(
     onDelete: () -> Unit,
 ) {
     var confirmingDelete by remember(task.appId) { mutableStateOf(false) }
-    val action = primaryActionFor(task, hasPackage = true)
 
     Row(
         modifier = Modifier

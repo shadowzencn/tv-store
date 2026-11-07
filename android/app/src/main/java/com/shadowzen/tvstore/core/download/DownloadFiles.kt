@@ -17,6 +17,22 @@ class DownloadFiles(val directory: File) {
         }
     }
 
+    /** 清理已安装完成或已不在活跃任务列表中的残留安装包文件，返回删除的文件数量。 */
+    fun cleanOrphans(tasks: List<DownloadTask>): Int {
+        val children = directory.listFiles() ?: return 0
+        val keepNames = tasks
+            .filter { it.status != com.shadowzen.tvstore.core.database.DownloadStatus.INSTALLED }
+            .flatMap { listOf(partFile(it).name, apkFile(it).name) }
+            .toSet()
+        var deleted = 0
+        for (file in children) {
+            if (file.isFile && file.name !in keepNames && file.delete()) {
+                deleted++
+            }
+        }
+        return deleted
+    }
+
     private fun baseName(task: DownloadTask): String =
         task.appId.replace(UNSAFE_CHARS, "_") + "-" + task.versionCode
 

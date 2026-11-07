@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Button
+import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.database.DownloadStatus
 import com.shadowzen.tvstore.core.database.DownloadTask
@@ -44,9 +47,16 @@ fun DetailScreen(
     statusLine: StatusLine?,
     onPrimaryAction: (DownloadAction) -> Unit,
     modifier: Modifier = Modifier,
+    isFavorite: Boolean = false,
+    onToggleFavorite: (() -> Unit)? = null,
+    onOpenFeedback: (() -> Unit)? = null,
 ) {
     val downloadFocus = remember { FocusRequester() }
-    val action = primaryActionFor(task, hasPackage = app.download != null)
+    val action = primaryActionFor(
+        task = task,
+        hasPackage = app.download != null,
+        latestVersionCode = app.download?.versionCode,
+    )
 
     LaunchedEffect(app.id) { downloadFocus.requestFocus() }
 
@@ -57,7 +67,11 @@ fun DetailScreen(
     ) {
         AppIcon(app = app, size = 140.dp)
         Spacer(Modifier.width(40.dp))
-        Column(modifier = Modifier.widthIn(max = 640.dp)) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 680.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
             Text(text = app.name, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(text = app.summary, fontSize = 18.sp, color = StoreColors.TextSecondary)
@@ -69,6 +83,9 @@ fun DetailScreen(
             InfoLine("最低系统", "${androidVersionName(app.minSdk)} 及以上")
             InfoLine("CPU 架构", if (app.abis.isEmpty()) "不限" else app.abis.joinToString(" / "))
             InfoLine("兼容状态", app.compatibility.label, compatibilityColor(app.compatibility))
+            app.testDeviceNotes?.let { notes ->
+                InfoLine("实测说明", notes, StoreColors.TextSecondary)
+            }
 
             if (!app.supportsArmeabiV7a) {
                 Spacer(Modifier.height(8.dp))
@@ -82,17 +99,40 @@ fun DetailScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(text = "已知问题：$issues", fontSize = 16.sp, color = StoreColors.Warning)
             }
+            app.releaseNotes?.let { releaseNotes ->
+                Spacer(Modifier.height(8.dp))
+                Text(text = "更新说明：$releaseNotes", fontSize = 15.sp, color = StoreColors.AccentSecondary)
+            }
 
             Spacer(Modifier.height(20.dp))
             Text(text = app.description, fontSize = 16.sp, color = StoreColors.TextSecondary, lineHeight = 24.sp)
             Spacer(Modifier.height(32.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
                     onClick = { onPrimaryAction(action) },
                     modifier = Modifier.focusRequester(downloadFocus),
                 ) {
                     Text(text = action.label, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 24.dp))
+                }
+                if (action == DownloadAction.UPDATE) {
+                    OutlinedButton(onClick = { onPrimaryAction(DownloadAction.OPEN) }) {
+                        Text(text = "打开旧版", fontSize = 17.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                    }
+                }
+                if (onToggleFavorite != null) {
+                    OutlinedButton(onClick = onToggleFavorite) {
+                        Text(
+                            text = if (isFavorite) "已收藏 · 取消" else "收藏",
+                            fontSize = 17.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        )
+                    }
+                }
+                if (onOpenFeedback != null) {
+                    OutlinedButton(onClick = onOpenFeedback) {
+                        Text(text = "问题反馈", fontSize = 17.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                    }
                 }
             }
             if (task != null && task.status != DownloadStatus.INSTALLED) {

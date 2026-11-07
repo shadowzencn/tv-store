@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Verified
+- 里程碑测试 1 验证通过（用户确认）：1Panel 线上服务端目录读取、APK 混淆资源图标提取与 Coil 图标渲染、真实安装包下载与 SHA-256 校验、系统安装及声明 `ACTION_MAIN` `<queries>` 后打开已安装应用均正常。
 - 阶段 2 APK 安装（internal 构建）在 TCL Q10L 上实机验证通过（用户确认）：首次安装、用户取消、打开测试应用、升级到 v2、降级被拒绝、异签版本被拒绝均符合预期。
 - 阶段 1 界面原型（internal 构建）在 TCL Q10L 上实机验证通过（用户确认）：遥控器操作流畅，焦点清晰无裁切，标签焦点恢复、详情页返回焦点恢复、返回键行为和远距离可读性均正常。debug 构建在该设备上明显卡顿，实机体验以 internal/release 构建为准。
 
@@ -16,6 +17,7 @@
 - PRD / TDD：确定最低版本 Android 9（minSdk 28）、重点适配 Android 11、重点架构 armeabi-v7a、包名 com.shadowzen.tvstore。
 
 ### Added
+- 阶段 5 完整联调（电视端全功能闭环）：新增分类页（`feature/category/`，顶部全部分类与各分类筛选胶囊、网格展示与详情返回焦点恢复）、搜索页（`feature/search/`，支持中英文、多关键词与子序列模糊搜索，本地持久化搜索历史与一键清除）、收藏功能（`feature/favorites/` 与详情页收藏按钮，按收藏时间倒序本地原子文件持久化，支持查看详情与取消收藏）、本商店应用更新检查（只管理本商店安装过的应用，对比目录最新 `versionCode` 与签名一致性，在详情页、下载页和设置页提示并触发升级下载；已卸载应用自动清理失效已安装记录）、商店客户端自身更新（`core/network/ClientVersionApi.kt`，对接 `GET /api/v1/client/version` 并复用下载与安装流程升级客户端）、用户反馈（`core/network/FeedbackApi.kt` 与 `feature/settings/FeedbackScreen.kt`，对接 `POST /api/v1/feedback`，支持 5 类问题、关联应用、快捷短语点选与自定义说明）以及设置页（`feature/settings/SettingsScreen.kt`，汇总应用更新、客户端更新、残留下载包清理、搜索历史清除、问题反馈、关于信息与 internal 安装测试入口）。
 - 服务端 `php artisan tvstore:extract-icons` 命令：为没有图标的应用从已存安装包补提取启动图标（优先已发布版本，否则取版本号最大的版本）。只支持位图图标；只有自适应图标（XML）且资源名混淆的安装包提取不到，需在编辑页手动补传。图标存储逻辑抽为 AppIconStore 共用服务，上传流程行为不变。服务端测试 100 个全部通过。
 - 电视端应用图标显示：新增 Coil 3.6.3（coil-compose + coil-network-okhttp；Compose 标准图片加载库，内存/磁盘缓存开箱即用，网络层复用 OkHttp，Apache-2.0）。目录解析新增 app 级 iconUrl 字段（只接受 http(s) 绝对地址或以 / 开头的路径，其他取值回退占位）；AppIcon 组件在占位图标上叠加网络图标层，无 iconUrl、加载中、加载失败均显示原占位图，首页精选、最近更新、分类列表、详情页头部和下载管理列表自动生效。同时在 `AndroidManifest.xml` 中声明 `ACTION_MAIN` 软件包可见性（`<queries>`），修复 Android 11+ 安装后无法查询和打开已安装应用的问题。电视端测试 74 个全部通过，lint 保持 4 个已知警告，assembleInternal 构建成功。
 - 阶段 4 服务端与管理后台（server/，Laravel 13.40 + Filament 5.11 + SQLite，PHP 8.4）：数据表 categories、apps、app_versions（草稿/已发布/已撤回/历史版本，包名一致、签名一致、versionCode 不降、每应用最多一个已发布）、feedback、users；接口 GET /api/v1/catalog（ETag/304）、GET /api/v1/client/version、POST /api/v1/feedback（按 IP 限频），统一 camelCase 和 {"error":{"code","message"}} 错误格式。纯 PHP 的 APK 识别（app/Support/Apk/：二进制 AndroidManifest、resources.arsc 资源引用、v1/v2/v3 签名块，不依赖 Java/aapt2/apksigner，只提取证书不验证签名）。Filament 管理后台（/admin）：分类、应用、版本上传/发布/撤回/删除草稿、反馈处理，关键操作写入 Laravel 日志；管理员经 make:filament-user 或 tvstore:create-admin 创建，不开放注册。服务端测试 82 个全部通过。

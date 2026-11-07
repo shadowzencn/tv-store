@@ -1,7 +1,6 @@
 package com.shadowzen.tvstore
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,10 +36,14 @@ import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.formatFileSize
+import com.shadowzen.tvstore.feature.category.CategoryFocusState
+import com.shadowzen.tvstore.feature.category.CategoryScreen
 import com.shadowzen.tvstore.feature.detail.DetailScreen
+import com.shadowzen.tvstore.feature.downloads.DownloadAction
 import com.shadowzen.tvstore.feature.downloads.DownloadsScreen
 import com.shadowzen.tvstore.feature.downloads.StatusLine
 import com.shadowzen.tvstore.feature.downloads.statusLineFor
+import com.shadowzen.tvstore.feature.favorites.FavoritesScreen
 import com.shadowzen.tvstore.feature.home.CatalogGate
 import com.shadowzen.tvstore.feature.home.FEATURED_SHELF_ID
 import com.shadowzen.tvstore.feature.home.HomeContent
@@ -50,6 +53,13 @@ import com.shadowzen.tvstore.feature.home.buildHomeContent
 import com.shadowzen.tvstore.feature.home.homeFocusKey
 import com.shadowzen.tvstore.feature.installtest.InstallTestScreen
 import com.shadowzen.tvstore.feature.installtest.isInstallTestAvailable
+import com.shadowzen.tvstore.feature.search.SearchFocusState
+import com.shadowzen.tvstore.feature.search.SearchScreen
+import com.shadowzen.tvstore.feature.settings.FeedbackScreen
+import com.shadowzen.tvstore.feature.settings.SettingsScreen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class TopTab(val title: String) {
     HOME("首页"),
@@ -64,6 +74,10 @@ enum class TopTab(val title: String) {
 fun TvStoreApp() {
     var selectedTab by rememberSaveable { mutableStateOf(TopTab.HOME) }
     var detailAppId by rememberSaveable { mutableStateOf<String?>(null) }
+    var feedbackOpen by rememberSaveable { mutableStateOf(false) }
+    var feedbackAppId by rememberSaveable { mutableStateOf<String?>(null) }
+    var installTestOpen by rememberSaveable { mutableStateOf(false) }
+
     val tabFocusRequesters = remember { TopTab.entries.associateWith { FocusRequester() } }
     val context = LocalContext.current
     val installTestAvailable = remember { isInstallTestAvailable(context) }
@@ -72,6 +86,8 @@ fun TvStoreApp() {
     val tasks by container.downloadManager.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
     val installStates by container.storeInstaller.states.collectAsStateWithLifecycle()
     val notices by coordinator.notices.collectAsStateWithLifecycle()
+    val favoriteIds by container.favoritesStore.favoriteIds.collectAsStateWithLifecycle()
+    val searchHistory by container.searchHistoryStore.history.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // 只在前台自动安装刚下载完成的应用，后台时系统不允许弹出安装界面
@@ -84,6 +100,10 @@ fun TvStoreApp() {
     val catalog = catalogState.catalog
     val homeContent = remember(catalog) { catalog?.let(::buildHomeContent) }
     val homeFocusState = remember { HomeFocusState() }
+    val categoryFocusState = remember { CategoryFocusState() }
+    val searchFocusState = remember { SearchFocusState() }
+    var favoritePendingAppId by rememberSaveable { mutableStateOf<String?>(null) }
+
     // 启动时和每次按“重试/刷新”后，让状态页的按钮获得焦点
     var statusFocusPending by remember { mutableStateOf(true) }
 
@@ -105,6 +125,23 @@ fun TvStoreApp() {
             contentColor = StoreColors.TextPrimary,
         ),
     ) {
+        if (feedbackOpen) {
+            BackHandler { feedbackOpen = false }
+            FeedbackScreen(
+                apps = catalog?.apps.orEmpty(),
+                initialAppId = feedbackAppId,
+                onSubmitFeedback = { submission -> container.feedbackApi.submit(submission) },
+                onBack = { feedbackOpen = false },
+            )
+            return@Surface
+        }
+
+        if (installTestOpen && installTestAvailable) {
+            BackHandler { installTestOpen = false }
+            InstallTestScreen()
+            return@Surface
+        }
+
         val detailApp = detailAppId?.let { catalog?.findApp(it) }
         if (detailApp != null) {
             BackHandler { detailAppId = null }
@@ -115,8 +152,22 @@ fun TvStoreApp() {
                 categoryName = catalog?.categoryName(detailApp.categoryId).orEmpty(),
                 task = task,
                 statusLine = notice?.let { StatusLine(it, StoreColors.Warning) }
-                    ?: task?.let { statusLineFor(it, installStates[it.appId], null) },
+                    ?: task?.let {
+                        statusLineFor(
+                            task = it,
+                            installState = installStates[it.appId],
+                            notice = null,
+                            latestVersionName = detailApp.versionName,
+                            latestVersionCode = detailApp.download?.versionCode,
+                        )
+                    },
                 onPrimaryAction = { action -> coordinator.perform(action, detailApp.id, task, detailApp) },
+                isFavorite = detailApp.id in favoriteIds,
+                onToggleFavorite = { container.favoritesStore.toggle(detailApp.id) },
+                onOpenFeedback = {
+                    feedbackAppId = detailApp.id
+                    feedbackOpen = true
+                },
             )
             return@Surface
         }
@@ -124,6 +175,10 @@ fun TvStoreApp() {
         // 标签随焦点切换，所以返回首页要把焦点移回“首页”标签，而不是只改 selectedTab
         BackHandler(enabled = selectedTab != TopTab.HOME) {
             tabFocusRequesters.getValue(TopTab.HOME).requestFocus()
+        }
+
+        val freeSpaceText = remember(tasks.size, selectedTab) {
+            "可用空间 ${formatFileSize(container.storageSpace.availableBytes(context.filesDir))}"
         }
 
         Column(modifier = Modifier.fillMaxSize()) {
@@ -159,26 +214,102 @@ fun TvStoreApp() {
                         },
                     )
                 }
+
+                TopTab.CATEGORY -> CatalogGate(
+                    state = catalogState,
+                    isEmpty = { it.apps.isEmpty() },
+                    onRetry = {
+                        statusFocusPending = true
+                        container.refreshCatalog()
+                    },
+                    requestFocus = statusFocusPending,
+                    onFocusRequested = { statusFocusPending = false },
+                ) { readyCatalog ->
+                    CategoryScreen(
+                        catalog = readyCatalog,
+                        focusState = categoryFocusState,
+                        onAppClick = { app -> detailAppId = app.id },
+                    )
+                }
+
+                TopTab.SEARCH -> CatalogGate(
+                    state = catalogState,
+                    isEmpty = { it.apps.isEmpty() },
+                    onRetry = {
+                        statusFocusPending = true
+                        container.refreshCatalog()
+                    },
+                    requestFocus = statusFocusPending,
+                    onFocusRequested = { statusFocusPending = false },
+                ) { readyCatalog ->
+                    SearchScreen(
+                        catalog = readyCatalog,
+                        history = searchHistory,
+                        focusState = searchFocusState,
+                        onRecordQuery = { container.searchHistoryStore.record(it) },
+                        onClearHistory = { container.searchHistoryStore.clear() },
+                        onAppClick = { app -> detailAppId = app.id },
+                    )
+                }
+
                 TopTab.DOWNLOADS -> DownloadsScreen(
                     tasks = tasks,
                     installStates = installStates,
                     notices = notices,
-                    freeSpaceText = remember(tasks.size) {
-                        "可用空间 ${formatFileSize(container.storageSpace.availableBytes(context.filesDir))}"
-                    },
+                    freeSpaceText = freeSpaceText,
                     onAction = { action, task ->
                         coordinator.perform(action, task.appId, task, catalog?.findApp(task.appId))
                     },
                     onDelete = { task -> coordinator.delete(task.appId) },
                     onListEmptied = { tabFocusRequesters.getValue(TopTab.DOWNLOADS).requestFocus() },
                     iconUrl = { appId -> catalog?.findApp(appId)?.iconUrl },
+                    catalogApp = { appId -> catalog?.findApp(appId) },
                 )
-                TopTab.SETTINGS -> if (installTestAvailable) {
-                    InstallTestScreen()
-                } else {
-                    PlaceholderPage(tab = selectedTab)
+
+                TopTab.FAVORITES -> {
+                    val favoriteApps = remember(catalog, favoriteIds) {
+                        favoriteIds.mapNotNull { id -> catalog?.findApp(id) }
+                    }
+                    FavoritesScreen(
+                        favoriteApps = favoriteApps,
+                        categoryName = { id -> catalog?.categoryName(id) ?: "未分类" },
+                        pendingAppId = favoritePendingAppId,
+                        onFocusRestored = { favoritePendingAppId = null },
+                        onOpenDetail = { app ->
+                            favoritePendingAppId = app.id
+                            detailAppId = app.id
+                        },
+                        onRemoveFavorite = { app -> container.favoritesStore.remove(app.id) },
+                        onListEmptied = { tabFocusRequesters.getValue(TopTab.FAVORITES).requestFocus() },
+                    )
                 }
-                else -> PlaceholderPage(tab = selectedTab)
+
+                TopTab.SETTINGS -> SettingsScreen(
+                    catalogApps = catalog?.apps.orEmpty(),
+                    tasks = tasks,
+                    freeSpaceText = freeSpaceText,
+                    searchHistoryCount = searchHistory.size,
+                    installTestAvailable = installTestAvailable,
+                    onUpdateApps = { appsToUpdate ->
+                        appsToUpdate.forEach { app ->
+                            val task = tasks.firstOrNull { it.appId == app.id }
+                            coordinator.perform(DownloadAction.UPDATE, app.id, task, app)
+                        }
+                    },
+                    onCheckClientVersion = { container.clientVersionApi.fetchLatest() },
+                    onEnqueueClientUpdate = { request ->
+                        container.appScope.launch { container.downloadManager.enqueue(request) }
+                    },
+                    onCleanDownloadCache = {
+                        withContext(Dispatchers.IO) { container.downloadFiles.cleanOrphans(tasks) }
+                    },
+                    onClearSearchHistory = { container.searchHistoryStore.clear() },
+                    onOpenFeedback = {
+                        feedbackAppId = null
+                        feedbackOpen = true
+                    },
+                    onOpenInstallTest = { installTestOpen = true },
+                )
             }
         }
     }
@@ -233,14 +364,3 @@ private fun TopBar(
 private fun firstFocusKey(content: HomeContent): String? =
     content.featured.firstOrNull()?.let { homeFocusKey(FEATURED_SHELF_ID, it.id) }
         ?: content.shelves.firstOrNull()?.let { shelf -> shelf.apps.firstOrNull()?.let { homeFocusKey(shelf.id, it.id) } }
-
-@Composable
-private fun PlaceholderPage(tab: TopTab) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "${tab.title}页面将在后续任务中实现",
-            fontSize = 20.sp,
-            color = StoreColors.TextSecondary,
-        )
-    }
-}

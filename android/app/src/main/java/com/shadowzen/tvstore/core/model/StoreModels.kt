@@ -27,6 +27,8 @@ data class StoreApp(
     val abis: List<String>,
     val compatibility: CompatibilityStatus,
     val knownIssues: String?,
+    val testDeviceNotes: String? = null,
+    val releaseNotes: String? = null,
     /** 管理员标记为精选，显示在首页精选区域。 */
     val featured: Boolean = false,
     /** 应用图标地址；服务端未提供时为 null，界面显示占位图标。 */
@@ -46,6 +48,7 @@ data class AppDownload(
     val versionCode: Long,
     val url: String,
     val sha256: String,
+    val signerSha256: String? = null,
 )
 
 data class AppShelf(

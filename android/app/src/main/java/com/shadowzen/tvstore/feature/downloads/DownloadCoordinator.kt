@@ -6,6 +6,7 @@ import com.shadowzen.tvstore.core.database.DownloadStatus
 import com.shadowzen.tvstore.core.database.DownloadTask
 import com.shadowzen.tvstore.core.download.DownloadFiles
 import com.shadowzen.tvstore.core.download.DownloadManager
+import com.shadowzen.tvstore.core.installer.ApkInspector
 import com.shadowzen.tvstore.core.installer.StoreInstaller
 import com.shadowzen.tvstore.core.installer.launchInstalledApp
 import com.shadowzen.tvstore.core.model.StoreApp
@@ -38,6 +39,7 @@ class DownloadCoordinator(
             try {
                 when (action) {
                     DownloadAction.START -> app?.toDownloadRequest()?.let { manager.enqueue(it) }
+                    DownloadAction.UPDATE -> if (app != null) startUpdate(app, task)
                     DownloadAction.PAUSE -> manager.pause(appId)
                     DownloadAction.RESUME, DownloadAction.RETRY -> {
                         installer.clear(appId)
@@ -73,6 +75,30 @@ class DownloadCoordinator(
         if (task.status == DownloadStatus.COMPLETED) install(task)
     }
 
+    private suspend fun startUpdate(app: StoreApp, task: DownloadTask?) {
+        val download = app.download ?: return
+        if (task != null && download.packageName != task.packageName) {
+            setNotice(app.id, "不能更新：新版本包名（${download.packageName}）与已装记录（${task.packageName}）不一致")
+            return
+        }
+        val installed = ApkInspector(context.packageManager).findInstalled(download.packageName)
+        if (installed != null) {
+            if (download.versionCode < installed.versionCode) {
+                setNotice(app.id, "不能更新：已安装的版本更新（versionCode ${installed.versionCode}），商店不会自动降级")
+                return
+            }
+            if (download.signerSha256 != null &&
+                installed.signers.isNotEmpty() &&
+                download.signerSha256.lowercase() !in installed.signers
+            ) {
+                setNotice(app.id, "不能更新：签名与已安装的版本不一致，禁止覆盖安装")
+                return
+            }
+        }
+        installer.clear(app.id)
+        app.toDownloadRequest()?.let { manager.enqueue(it) }
+    }
+
     private suspend fun install(task: DownloadTask) {
         val apk = files.apkFile(task)
         if (!apk.exists()) {
@@ -84,7 +110,15 @@ class DownloadCoordinator(
 
     private suspend fun open(packageName: String, appId: String) {
         val opened = withContext(Dispatchers.Main) { launchInstalledApp(context, packageName) }
-        if (!opened) setNotice(appId, "找不到该应用的启动入口，可能已被卸载")
+        if (!opened) {
+            val stillInstalled = ApkInspector(context.packageManager).findInstalled(packageName) != null
+            if (!stillInstalled) {
+                manager.delete(appId)
+                setNotice(appId, "该应用已被卸载，可重新下载安装")
+            } else {
+                setNotice(appId, "找不到该应用的启动入口，可能已被卸载")
+            }
+        }
     }
 
     private fun setNotice(appId: String, notice: String?) {

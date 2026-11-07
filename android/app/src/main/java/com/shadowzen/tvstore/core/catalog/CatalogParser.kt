@@ -73,6 +73,8 @@ object CatalogParser {
             abis = abis,
             compatibility = compatibilityOf(version.optionalString("compatibility")),
             knownIssues = version.optionalString("knownIssues"),
+            testDeviceNotes = version.optionalString("testDeviceNotes"),
+            releaseNotes = version.optionalString("releaseNotes"),
             featured = item.optBoolean("featured", false),
             iconUrl = resolveIconUrl(item.optionalString("iconUrl"), baseUrl),
             publishedAtMillis = version.optionalString("publishedAt")?.let(::parseTimestamp),
@@ -81,6 +83,7 @@ object CatalogParser {
                 versionCode = version.positiveLong("versionCode"),
                 url = url.toString(),
                 sha256 = sha256,
+                signerSha256 = version.optionalString("signerSha256")?.lowercase(),
             ),
         )
     }

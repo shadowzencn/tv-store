@@ -17,26 +17,48 @@ enum class DownloadAction(val label: String) {
     RETRY("重试"),
     INSTALL("安装"),
     OPEN("打开"),
+    UPDATE("更新"),
 
     /** 应用没有可下载的安装包（例如本地示例数据）。 */
     UNAVAILABLE("下载"),
 }
 
 /** 任务状态对应的主按钮。按钮位置固定只换文字，遥控器焦点不会因状态变化而丢失。 */
-fun primaryActionFor(task: DownloadTask?, hasPackage: Boolean): DownloadAction = when (task?.status) {
+fun primaryActionFor(
+    task: DownloadTask?,
+    hasPackage: Boolean,
+    latestVersionCode: Long? = null,
+): DownloadAction = when (task?.status) {
     null -> if (hasPackage) DownloadAction.START else DownloadAction.UNAVAILABLE
     DownloadStatus.QUEUED, DownloadStatus.DOWNLOADING, DownloadStatus.VERIFYING -> DownloadAction.PAUSE
     DownloadStatus.PAUSED -> DownloadAction.RESUME
     DownloadStatus.FAILED -> DownloadAction.RETRY
     DownloadStatus.COMPLETED -> DownloadAction.INSTALL
-    DownloadStatus.INSTALLED -> DownloadAction.OPEN
+    DownloadStatus.INSTALLED -> if (hasPackage && latestVersionCode != null && latestVersionCode > task.versionCode) {
+        DownloadAction.UPDATE
+    } else {
+        DownloadAction.OPEN
+    }
 }
 
 data class StatusLine(val text: String, val color: Color)
 
 /** 状态文字优先级：操作提示 > 安装状态（仅下载完成后）> 下载状态。 */
-fun statusLineFor(task: DownloadTask, installState: InstallState?, notice: String?): StatusLine {
+fun statusLineFor(
+    task: DownloadTask,
+    installState: InstallState?,
+    notice: String?,
+    latestVersionName: String? = null,
+    latestVersionCode: Long? = null,
+): StatusLine {
     if (notice != null) return StatusLine(notice, StoreColors.Warning)
+    if (task.status == DownloadStatus.INSTALLED &&
+        latestVersionCode != null &&
+        latestVersionCode > task.versionCode
+    ) {
+        val ver = latestVersionName?.let { " v$it" }.orEmpty()
+        return StatusLine("发现新版本$ver（已安装 v${task.versionName}）", StoreColors.AccentSecondary)
+    }
     if (installState != null &&
         (task.status == DownloadStatus.COMPLETED || task.status == DownloadStatus.INSTALLED)
     ) {

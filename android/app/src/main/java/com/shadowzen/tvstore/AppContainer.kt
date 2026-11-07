@@ -14,8 +14,12 @@ import com.shadowzen.tvstore.core.download.DownloadQueueRunner
 import com.shadowzen.tvstore.core.download.StorageSpace
 import com.shadowzen.tvstore.core.download.WorkManagerDownloadScheduler
 import com.shadowzen.tvstore.core.installer.StoreInstaller
+import com.shadowzen.tvstore.core.network.ClientVersionApi
+import com.shadowzen.tvstore.core.network.FeedbackApi
 import com.shadowzen.tvstore.core.network.StoreHttpClient
 import com.shadowzen.tvstore.feature.downloads.DownloadCoordinator
+import com.shadowzen.tvstore.feature.favorites.FavoritesStore
+import com.shadowzen.tvstore.feature.search.SearchHistoryStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -54,6 +58,14 @@ class AppContainer(context: Context) {
     fun refreshCatalog() {
         appScope.launch { catalogRepository.refresh() }
     }
+
+    val clientVersionApi by lazy { ClientVersionApi(httpClient, serverBaseUrl) }
+
+    val feedbackApi by lazy { FeedbackApi(httpClient, serverBaseUrl) }
+
+    val favoritesStore by lazy { FavoritesStore(File(appContext.filesDir, "prefs/favorites.txt")) }
+
+    val searchHistoryStore by lazy { SearchHistoryStore(File(appContext.filesDir, "prefs/search_history.txt")) }
 
     val storageSpace by lazy { StorageSpace(appContext) }
 
