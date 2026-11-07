@@ -66,13 +66,13 @@ class AppVersionUploader
         $app->forceFill([
             'id' => self::uniqueSlugFromPackage($info->packageName),
             'package_name' => $info->packageName,
-            'name' => $info->label ?: $info->packageName,
+            'name' => mb_substr($info->label ?: $info->packageName, 0, 100),
             'category_id' => $appAttributes['category_id'],
             'is_listed' => (bool) ($appAttributes['is_listed'] ?? true),
             'is_featured' => (bool) ($appAttributes['is_featured'] ?? false),
         ]);
 
-        return DB::transaction(function () use ($app, $info, $uploadedPath, $details): AppVersion {
+        $version = DB::transaction(function () use ($app, $info, $uploadedPath, $details): AppVersion {
             $app->save();
 
             Log::info('App created from APK upload', [
@@ -83,6 +83,25 @@ class AppVersionUploader
 
             return $this->store($app, $info, $uploadedPath, $details);
         });
+
+        $this->storeIcon($app, $info);
+
+        return $version;
+    }
+
+    private function storeIcon(StoreApp $app, ApkInfo $info): void
+    {
+        if ($info->iconBytes === null || ! in_array($info->iconExtension, ['png', 'webp', 'jpg'], true)) {
+            return;
+        }
+        if (strlen($info->iconBytes) > 1024 * 1024) {
+            return;
+        }
+
+        $path = "icons/{$app->id}.{$info->iconExtension}";
+        Storage::disk(AppServiceProvider::FILES_DISK)->put($path, $info->iconBytes);
+        $app->icon_path = $path;
+        $app->save();
     }
 
     /**

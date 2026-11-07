@@ -20,9 +20,23 @@ class StoreAppForm
     {
         return $schema
             ->components([
+                Section::make('安装包')
+                    ->columnSpanFull()
+                    ->visibleOn('create')
+                    ->schema([
+                        FileUpload::make('apk')
+                            ->label('APK 文件')
+                            ->helperText('只需上传安装包。服务端识别包名、名称和启动图标并创建应用，版本保存为草稿。安装包里没有可用图标时，创建后可以在编辑页补传。分类先归入排序最靠前的分类。只接受 .apk，最大 '.config('tvstore.max_apk_mb').' MB。')
+                            ->required()
+                            ->storeFiles(false)
+                            ->maxSize(config('tvstore.max_apk_mb') * 1024)
+                            ->rule('extensions:apk')
+                            ->validationMessages(['extensions' => '只能上传 .apk 文件。']),
+                    ]),
                 Section::make('基本信息')
                     ->columns(2)
                     ->columnSpanFull()
+                    ->visibleOn('edit')
                     ->schema([
                         TextInput::make('id')
                             ->label('标识（slug）')
@@ -61,6 +75,7 @@ class StoreAppForm
                 Section::make('展示')
                     ->columns(2)
                     ->columnSpanFull()
+                    ->visibleOn('edit')
                     ->schema([
                         Toggle::make('is_listed')
                             ->label('上架')

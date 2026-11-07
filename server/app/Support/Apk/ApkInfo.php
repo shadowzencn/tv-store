@@ -18,5 +18,9 @@ final readonly class ApkInfo
         public string $sha256,
         public string $signerSha256,
         public ?string $label,
+        /** Raw launcher icon bytes taken from the APK, or null when none could be read. */
+        public ?string $iconBytes = null,
+        /** png, webp or jpg. Only set together with iconBytes. */
+        public ?string $iconExtension = null,
     ) {}
 }

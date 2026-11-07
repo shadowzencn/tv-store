@@ -9,6 +9,7 @@
 - 阶段 1 界面原型（internal 构建）在 TCL Q10L 上实机验证通过（用户确认）：遥控器操作流畅，焦点清晰无裁切，标签焦点恢复、详情页返回焦点恢复、返回键行为和远距离可读性均正常。debug 构建在该设备上明显卡顿，实机体验以 internal/release 构建为准。
 
 ### Changed
+- 管理后台「创建应用」改为只需上传 APK：服务端识别包名、名称和启动图标并生成草稿版本，分类先归入排序最靠前的分类，创建后可再修改资料。安装包里没有位图图标时，编辑页仍可补传。
 - 架构精简（用户批准）：服务端和管理后台改用同一个 Laravel 13 + Filament 5 + SQLite 项目（PHP 8.4），部署到 1Panel，安装包由 OpenResty 静态提供；取消 Python/FastAPI、PostgreSQL、React/Vite/TypeScript 管理后台和 Docker Compose。客户端接口精简为 catalog、client/version、feedback 三个，首版不做下载统计。开发计划阶段 4、5 合并为“阶段 4：服务端与管理后台”，原阶段 6 完整联调改为阶段 5；里程碑测试 1 在阶段 4 后、里程碑测试 2 在阶段 5 后。涉及 AGENTS.md、README.md、PRD（V1.1）、TDD（V1.1）、DEVELOPMENT-PLAN（V1.1）。
 - AGENTS.md / DEVELOPMENT-PLAN.md：改为按阶段连续推进、自测通过后统一汇报；日常以电脑端自动化测试验证，TCL Q10L 实机测试只在里程碑进行（阶段 3+4 完成后一次、阶段 6 一次；按架构精简后的编号为阶段 4 完成后一次、阶段 5 完成后一次）。
 - AGENTS.md：禁止通过 ADB 连接或调试 TCL Q10L。

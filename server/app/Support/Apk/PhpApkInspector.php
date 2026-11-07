@@ -14,6 +14,10 @@ final class PhpApkInspector implements ApkInspector
 {
     private const ATTR_LABEL = 0x01010001;
 
+    private const ATTR_ICON = 0x01010002;
+
+    private const ATTR_BANNER = 0x0101042F;
+
     private const ATTR_MIN_SDK_VERSION = 0x0101020C;
 
     private const ATTR_VERSION_CODE = 0x0101021B;
@@ -66,6 +70,7 @@ final class PhpApkInspector implements ApkInspector
             $manifest = $this->readManifest($zip);
             $signer = $this->signatureReader->signerCertificate($path, $sizeBytes, $zip);
             $abis = $this->abis($zip);
+            $icon = ApkIcon::extract($zip, $manifest['iconPath'] ?? $manifest['bannerPath']);
         } finally {
             $this->zip = null;
             $this->resources = null;
@@ -88,10 +93,12 @@ final class PhpApkInspector implements ApkInspector
             sha256: $sha256,
             signerSha256: hash('sha256', $signer),
             label: $manifest['label'],
+            iconBytes: $icon['bytes'] ?? null,
+            iconExtension: $icon['extension'] ?? null,
         );
     }
 
-    /** @return array{packageName: string, versionName: string, versionCode: int, minSdk: int, targetSdk: ?int, label: ?string} */
+    /** @return array{packageName: string, versionName: string, versionCode: int, minSdk: int, targetSdk: ?int, label: ?string, iconPath: ?string, bannerPath: ?string} */
     private function readManifest(ZipArchive $zip): array
     {
         $data = $zip->getFromName('AndroidManifest.xml');
@@ -143,6 +150,8 @@ final class PhpApkInspector implements ApkInspector
             'minSdk' => $minSdk ?? 1,
             'targetSdk' => $targetSdk,
             'label' => $application === null ? null : $this->stringAttribute($application, self::ATTR_LABEL, 'label'),
+            'iconPath' => $application === null ? null : $this->resourcePath($application, self::ATTR_ICON, 'icon'),
+            'bannerPath' => $application === null ? null : $this->resourcePath($application, self::ATTR_BANNER, 'banner'),
         ];
     }
 
@@ -236,6 +245,22 @@ final class PhpApkInspector implements ApkInspector
         }
 
         return null;
+    }
+
+    /** @param array{attributes: list<array<string, mixed>>} $element */
+    private function resourcePath(array $element, int $resId, string $name): ?string
+    {
+        $attribute = $this->androidAttribute($element, $resId, $name);
+        if ($attribute === null) {
+            return null;
+        }
+        $value = $this->resolveValue($attribute);
+        if ($value === null || $value['type'] !== TypedValue::TYPE_STRING) {
+            return null;
+        }
+        $path = $value['string'];
+
+        return is_string($path) && $path !== '' ? $path : null;
     }
 
     /**
