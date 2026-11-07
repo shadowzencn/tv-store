@@ -126,6 +126,9 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime)
     implementation(libs.okhttp)
+    // 应用图标加载：Compose 图片库，内存/磁盘缓存开箱即用，网络层复用 OkHttp
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     testImplementation(libs.junit)
     testImplementation(libs.okhttp.mockwebserver)

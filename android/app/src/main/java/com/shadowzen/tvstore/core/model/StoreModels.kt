@@ -29,6 +29,8 @@ data class StoreApp(
     val knownIssues: String?,
     /** 管理员标记为精选，显示在首页精选区域。 */
     val featured: Boolean = false,
+    /** 应用图标地址；服务端未提供时为 null，界面显示占位图标。 */
+    val iconUrl: String? = null,
     /** 当前版本的发布时间（毫秒），用于“最近更新”；服务端未提供时为 null。 */
     val publishedAtMillis: Long? = null,
     /** 可下载的安装包；本地示例数据没有安装包，为 null。 */

@@ -9,7 +9,7 @@
 TCL Q10L。
 
 ## 技术架构（建议方案）
-- Android 客户端：Kotlin + Jetpack Compose for TV、Room、OkHttp、WorkManager、PackageInstaller
+- Android 客户端：Kotlin + Jetpack Compose for TV、Room、OkHttp、WorkManager、Coil 3（应用图标加载）、PackageInstaller
 - 服务端和管理后台：同一个 Laravel 13 项目（PHP 8.4），管理后台使用 Filament 5
 - 数据库：SQLite
 - 安装包存储：服务器本地磁盘，由 OpenResty 直接提供静态下载（支持 HTTP Range）

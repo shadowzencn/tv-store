@@ -29,6 +29,7 @@ object CatalogFixtures {
         id: String,
         categoryId: String = "video",
         featured: Boolean = false,
+        iconUrl: String? = null,
         version: JSONObject? = version(),
     ): JSONObject = JSONObject()
         .put("id", id)
@@ -37,6 +38,7 @@ object CatalogFixtures {
         .put("description", "说明 $id")
         .put("categoryId", categoryId)
         .put("featured", featured)
+        .put("iconUrl", iconUrl ?: JSONObject.NULL)
         .put("version", version ?: JSONObject.NULL)
 
     fun catalog(vararg apps: JSONObject): String = JSONObject()

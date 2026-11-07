@@ -29,6 +29,7 @@ class AppVersionUploader
     public function __construct(
         private readonly ApkInspector $inspector,
         private readonly AppVersionPublisher $publisher,
+        private readonly AppIconStore $icons,
     ) {}
 
     /**
@@ -91,17 +92,11 @@ class AppVersionUploader
 
     private function storeIcon(StoreApp $app, ApkInfo $info): void
     {
-        if ($info->iconBytes === null || ! in_array($info->iconExtension, ['png', 'webp', 'jpg'], true)) {
-            return;
-        }
-        if (strlen($info->iconBytes) > 1024 * 1024) {
+        if ($info->iconBytes === null || $info->iconExtension === null) {
             return;
         }
 
-        $path = "icons/{$app->id}.{$info->iconExtension}";
-        Storage::disk(AppServiceProvider::FILES_DISK)->put($path, $info->iconBytes);
-        $app->icon_path = $path;
-        $app->save();
+        $this->icons->store($app, $info->iconBytes, $info->iconExtension);
     }
 
     /**

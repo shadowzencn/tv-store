@@ -74,6 +74,7 @@ object CatalogParser {
             compatibility = compatibilityOf(version.optionalString("compatibility")),
             knownIssues = version.optionalString("knownIssues"),
             featured = item.optBoolean("featured", false),
+            iconUrl = resolveIconUrl(item.optionalString("iconUrl"), baseUrl),
             publishedAtMillis = version.optionalString("publishedAt")?.let(::parseTimestamp),
             download = AppDownload(
                 packageName = version.string("packageName"),
@@ -89,6 +90,18 @@ object CatalogParser {
         "verified" -> CompatibilityStatus.TESTED
         "spec_match" -> CompatibilityStatus.PARAMS_MATCH
         else -> CompatibilityStatus.UNVERIFIED
+    }
+
+    /**
+     * 图标是装饰性字段：只接受绝对 http(s) 地址或以 / 开头的相对路径，
+     * 其他无效值返回 null 让界面显示占位图标，不影响整个应用的展示。
+     */
+    private fun resolveIconUrl(value: String?, baseUrl: HttpUrl): String? {
+        if (value == null) return null
+        if (!value.startsWith("/") && "://" !in value) return null
+        val resolved = baseUrl.resolve(value) ?: return null
+        if (resolved.scheme != "http" && resolved.scheme != "https") return null
+        return resolved.toString()
     }
 
     private fun parseTimestamp(value: String): Long? = try {

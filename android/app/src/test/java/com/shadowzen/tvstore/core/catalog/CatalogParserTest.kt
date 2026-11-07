@@ -68,6 +68,24 @@ class CatalogParserTest {
     }
 
     @Test
+    fun parsesIconUrlAndFallsBackToNullWhenMissingOrInvalid() {
+        val body = catalog(
+            app("relative", iconUrl = "/files/icons/relative.png"),
+            app("absolute", iconUrl = "https://tv.shadowzen.xyz/files/icons/absolute.png"),
+            app("invalid", iconUrl = "not a url"),
+            app("missing"),
+        )
+
+        val apps = CatalogParser.parse(body, baseUrl).apps
+
+        assertEquals("https://store.example.com/files/icons/relative.png", apps[0].iconUrl)
+        assertEquals("https://tv.shadowzen.xyz/files/icons/absolute.png", apps[1].iconUrl)
+        // 图标是装饰性字段，无效地址只降级为占位图标，不丢弃整个应用
+        assertNull(apps[2].iconUrl)
+        assertNull(apps[3].iconUrl)
+    }
+
+    @Test
     fun skipsInvalidAndDuplicateAppsButKeepsTheRest() {
         val skipped = mutableListOf<String>()
         val body = catalog(

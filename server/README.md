@@ -40,6 +40,8 @@ Remove-Item Env:TVSTORE_ADMIN_PASSWORD
 
 Filament 自带的 `php artisan make:filament-user` 也可用，但它的 `--password` 参数会留在命令历史里，不建议在服务器上使用。
 
+已发布但没有图标的应用可运行 `php artisan tvstore:extract-icons`，从服务器上已存的安装包自动补提取图标（优先已发布版本，否则取版本号最大的版本）。
+
 ## 管理后台（`/admin`）
 
 导航：分类、应用、版本、反馈。
