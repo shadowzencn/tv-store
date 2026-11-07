@@ -3,10 +3,12 @@ package com.shadowzen.tvstore.feature.settings
 import android.app.Application
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import com.shadowzen.tvstore.BuildConfig
@@ -19,8 +21,11 @@ import com.shadowzen.tvstore.core.model.StoreApp
 import com.shadowzen.tvstore.core.model.StoreCategory
 import com.shadowzen.tvstore.core.network.ClientRelease
 import com.shadowzen.tvstore.core.network.ClientVersionResult
+import com.shadowzen.tvstore.core.network.FeedbackSubmission
 import com.shadowzen.tvstore.feature.category.CategoryFocusState
 import com.shadowzen.tvstore.feature.category.CategoryScreen
+import com.shadowzen.tvstore.feature.search.SearchFocusState
+import com.shadowzen.tvstore.feature.search.SearchScreen
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -139,6 +144,62 @@ class Stage5ScreensTest {
         compose.onNodeWithText("下载更新 v9.9.9").assertExists()
         pressOk()
         assertEquals(listOf("9.9.9"), clientUpdateRequests)
+    }
+
+    @Test
+    fun searchScreenOnScreenKeypadWorksWithRemoteAndMouse() {
+        val focusState = SearchFocusState()
+        compose.setContent {
+            SearchScreen(
+                catalog = sampleCatalog,
+                history = listOf("HG"),
+                focusState = focusState,
+                onRecordQuery = {},
+                onClearHistory = {},
+                onAppClick = {},
+            )
+        }
+
+        // 鼠标点按屏幕软键盘 S、T 即可搜出 SmartTube
+        compose.onNodeWithText("S").performTouchInput { click() }
+        compose.onNodeWithText("T").performTouchInput { click() }
+        compose.waitForIdle()
+
+        assertEquals("ST", focusState.query)
+        compose.onNodeWithText("SmartTube").assertExists()
+
+        // 退格与清空
+        compose.onNodeWithText("退格").performTouchInput { click() }
+        assertEquals("S", focusState.query)
+        compose.onNodeWithText("清空").performTouchInput { click() }
+        assertEquals("", focusState.query)
+    }
+
+    @Test
+    fun feedbackScreenDoesNotTrapFocusInTextFieldAndSubmits() {
+        val submitted = mutableListOf<FeedbackSubmission>()
+        compose.setContent {
+            FeedbackScreen(
+                apps = sampleCatalog.apps,
+                initialAppId = "smarttube",
+                onSubmitFeedback = { sub ->
+                    submitted += sub
+                    1L
+                },
+                onBack = {},
+            )
+        }
+
+        // 连续按方向键下移（穿过第1步、第2步、第3步快捷短语、输入框），最终能顺利到达“提交反馈”按钮而不会被输入框困住
+        repeat(6) {
+            compose.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+            compose.waitForIdle()
+        }
+        compose.onNodeWithText("提交反馈").assertIsFocused()
+        pressOk()
+
+        assertEquals(1, submitted.size)
+        assertEquals("smarttube", submitted.first().appId)
     }
 
     private fun pressOk() {

@@ -31,6 +31,7 @@ import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.AppIcon
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.core.model.StoreApp
 
 @Composable
@@ -143,7 +144,8 @@ private fun StoreCardSurface(
         onClick = onClick,
         modifier = Modifier
             .size(width = width, height = height)
-            .focusRequester(focusRequester),
+            .focusRequester(focusRequester)
+            .pointerClick(onClick = onClick),
         shape = ClickableSurfaceDefaults.shape(shape = StoreDimens.CardShape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = StoreColors.CardBackground,

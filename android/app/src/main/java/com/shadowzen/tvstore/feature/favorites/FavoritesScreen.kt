@@ -36,6 +36,7 @@ import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.AppIcon
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.core.model.StoreApp
 
 /**
@@ -170,12 +171,17 @@ private fun FavoriteRow(
         Spacer(Modifier.width(24.dp))
         Button(
             onClick = onOpenDetail,
-            modifier = Modifier.focusRequester(primaryFocusRequester),
+            modifier = Modifier
+                .focusRequester(primaryFocusRequester)
+                .pointerClick(onClick = onOpenDetail),
         ) {
             Text(text = "查看详情", fontSize = 17.sp, modifier = Modifier.padding(horizontal = 12.dp))
         }
         Spacer(Modifier.width(12.dp))
-        OutlinedButton(onClick = onRemove) {
+        OutlinedButton(
+            onClick = onRemove,
+            modifier = Modifier.pointerClick(onClick = onRemove),
+        ) {
             Text(text = "取消收藏", fontSize = 17.sp)
         }
     }

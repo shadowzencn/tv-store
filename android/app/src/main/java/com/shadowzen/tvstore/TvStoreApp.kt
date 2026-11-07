@@ -1,6 +1,7 @@
 package com.shadowzen.tvstore
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
@@ -36,6 +38,7 @@ import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.formatFileSize
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.feature.category.CategoryFocusState
 import com.shadowzen.tvstore.feature.category.CategoryScreen
 import com.shadowzen.tvstore.feature.detail.DetailScreen
@@ -138,7 +141,7 @@ fun TvStoreApp() {
 
         if (installTestOpen && installTestAvailable) {
             BackHandler { installTestOpen = false }
-            InstallTestScreen()
+            InstallTestScreen(onBack = { installTestOpen = false })
             return@Surface
         }
 
@@ -168,6 +171,7 @@ fun TvStoreApp() {
                     feedbackAppId = detailApp.id
                     feedbackOpen = true
                 },
+                onBack = { detailAppId = null },
             )
             return@Surface
         }
@@ -193,7 +197,13 @@ fun TvStoreApp() {
                     null
                 },
             )
-            when (selectedTab) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clipToBounds(),
+            ) {
+                when (selectedTab) {
                 TopTab.HOME -> CatalogGate(
                     state = catalogState,
                     isEmpty = { homeContent?.isEmpty ?: true },
@@ -310,6 +320,7 @@ fun TvStoreApp() {
                     },
                     onOpenInstallTest = { installTestOpen = true },
                 )
+                }
             }
         }
     }
@@ -329,7 +340,7 @@ private fun TopBar(
                 start = StoreDimens.SafeHorizontal,
                 end = StoreDimens.SafeHorizontal,
                 top = StoreDimens.SafeTop,
-                bottom = 4.dp,
+                bottom = 10.dp,
             ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -344,7 +355,10 @@ private fun TopBar(
                 Tab(
                     selected = tab == selectedTab,
                     onFocus = { onTabFocused(tab) },
-                    modifier = Modifier.focusRequester(tabFocusRequesters.getValue(tab)),
+                    onClick = { onTabFocused(tab) },
+                    modifier = Modifier
+                        .focusRequester(tabFocusRequesters.getValue(tab))
+                        .pointerClick { onTabFocused(tab) },
                 ) {
                     Text(
                         text = tab.title,

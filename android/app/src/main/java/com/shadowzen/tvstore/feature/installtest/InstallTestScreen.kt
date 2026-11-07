@@ -25,12 +25,16 @@ import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.core.installer.InstallEvents
 import kotlinx.coroutines.launch
 
 /** internal 版专用的安装验证页面，按顺序执行 4 个测试场景。 */
 @Composable
-fun InstallTestScreen(modifier: Modifier = Modifier) {
+fun InstallTestScreen(
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     val controller = remember { InstallTestController(context.applicationContext) }
     val scope = rememberCoroutineScope()
@@ -54,31 +58,43 @@ fun InstallTestScreen(modifier: Modifier = Modifier) {
                 lineHeight = 20.sp,
             )
             InstallTestCase.entries.forEachIndexed { index, case ->
+                val runCase = { scope.launch { controller.run(case) }; Unit }
                 Button(
-                    onClick = { scope.launch { controller.run(case) } },
+                    onClick = runCase,
                     enabled = !controller.busy,
+                    modifier = Modifier.pointerClick(enabled = !controller.busy, onClick = runCase),
                 ) {
                     Text(text = "${index + 1}. ${case.title}", fontSize = 17.sp)
                 }
             }
-            OutlinedButton(
-                onClick = {
-                    val pm = context.packageManager
-                    val launch = pm.getLeanbackLaunchIntentForPackage(INSTALL_TEST_PACKAGE)
-                        ?: pm.getLaunchIntentForPackage(INSTALL_TEST_PACKAGE)
-                    controller.refreshInstalled()
-                    if (launch == null) {
-                        controller.note("测试应用未安装，或找不到它的启动入口")
-                    } else {
-                        try {
-                            context.startActivity(launch)
-                        } catch (e: ActivityNotFoundException) {
-                            controller.note("无法打开测试应用：${e.message}")
-                        }
+            val launchTestApp = {
+                val pm = context.packageManager
+                val launch = pm.getLeanbackLaunchIntentForPackage(INSTALL_TEST_PACKAGE)
+                    ?: pm.getLaunchIntentForPackage(INSTALL_TEST_PACKAGE)
+                controller.refreshInstalled()
+                if (launch == null) {
+                    controller.note("测试应用未安装，或找不到它的启动入口")
+                } else {
+                    try {
+                        context.startActivity(launch)
+                    } catch (e: ActivityNotFoundException) {
+                        controller.note("无法打开测试应用：${e.message}")
                     }
-                },
+                }
+            }
+            OutlinedButton(
+                onClick = launchTestApp,
+                modifier = Modifier.pointerClick(onClick = launchTestApp),
             ) {
                 Text(text = "打开测试应用", fontSize = 17.sp)
+            }
+            if (onBack != null) {
+                OutlinedButton(
+                    onClick = onBack,
+                    modifier = Modifier.pointerClick(onClick = onBack),
+                ) {
+                    Text(text = "返回", fontSize = 17.sp)
+                }
             }
         }
         Spacer(Modifier.width(40.dp))

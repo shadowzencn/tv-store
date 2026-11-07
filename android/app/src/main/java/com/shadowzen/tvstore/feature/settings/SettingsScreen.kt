@@ -38,6 +38,7 @@ import com.shadowzen.tvstore.core.database.DownloadTask
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.formatFileSize
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.core.download.DownloadRequest
 import com.shadowzen.tvstore.core.model.StoreApp
 import com.shadowzen.tvstore.core.network.ClientRelease
@@ -312,7 +313,10 @@ private fun SettingRow(
             Text(text = subtitle, fontSize = 15.sp, color = subtitleColor)
         }
         Spacer(Modifier.width(24.dp))
-        OutlinedButton(onClick = onAction, modifier = buttonModifier) {
+        OutlinedButton(
+            onClick = onAction,
+            modifier = buttonModifier.pointerClick(onClick = onAction),
+        ) {
             Text(text = actionLabel, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 8.dp))
         }
     }

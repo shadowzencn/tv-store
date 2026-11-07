@@ -39,6 +39,7 @@ import com.shadowzen.tvstore.core.designsystem.AppIcon
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.StoreProgressBar
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.core.installer.InstallState
 import com.shadowzen.tvstore.core.model.StoreApp
 
@@ -181,16 +182,24 @@ private fun DownloadRow(
             Text(text = sizeLineFor(task), fontSize = 14.sp, color = StoreColors.TextSecondary)
         }
         Spacer(Modifier.width(24.dp))
-        Button(onClick = onPrimary, modifier = Modifier.focusRequester(primaryFocusRequester)) {
+        Button(
+            onClick = onPrimary,
+            modifier = Modifier
+                .focusRequester(primaryFocusRequester)
+                .pointerClick(onClick = onPrimary),
+        ) {
             Text(text = action.label, fontSize = 17.sp, modifier = Modifier.padding(horizontal = 12.dp))
         }
         Spacer(Modifier.width(12.dp))
+        val handleDeleteClick = {
+            // 遥控器容易误按，第一次按下只要求确认
+            if (confirmingDelete) onDelete() else confirmingDelete = true
+        }
         OutlinedButton(
-            onClick = {
-                // 遥控器容易误按，第一次按下只要求确认
-                if (confirmingDelete) onDelete() else confirmingDelete = true
-            },
-            modifier = Modifier.onFocusChanged { if (!it.isFocused) confirmingDelete = false },
+            onClick = handleDeleteClick,
+            modifier = Modifier
+                .onFocusChanged { if (!it.isFocused) confirmingDelete = false }
+                .pointerClick(onClick = handleDeleteClick),
         ) {
             Text(
                 text = if (confirmingDelete) "确认删除" else "删除",

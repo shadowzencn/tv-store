@@ -6,10 +6,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import com.shadowzen.tvstore.core.database.DownloadStatus
 import com.shadowzen.tvstore.core.database.DownloadTask
@@ -84,6 +86,35 @@ class DetailScreenTest {
         compose.onNodeWithText("下载").assertIsFocused()
         pressOk()
         assertEquals(listOf(DownloadAction.UNAVAILABLE), actions)
+    }
+
+    @Test
+    fun pointerClickTriggersActionsWithMouseOrTouch() {
+        val app = SampleCatalog.apps.first().copy(
+            download = AppDownload("com.example.player", 1, "https://example.com/p.apk", "a".repeat(64)),
+        )
+        val actions = mutableListOf<DownloadAction>()
+        var favoriteToggled = false
+        var backClicked = false
+        compose.setContent {
+            DetailScreen(
+                app = app,
+                categoryName = "影音娱乐",
+                task = null,
+                statusLine = null,
+                onPrimaryAction = { actions += it },
+                onToggleFavorite = { favoriteToggled = true },
+                onBack = { backClicked = true },
+            )
+        }
+
+        compose.onNodeWithText("下载").performTouchInput { click() }
+        compose.onNodeWithText("收藏").performTouchInput { click() }
+        compose.onNodeWithText("返回").performTouchInput { click() }
+
+        assertEquals(listOf(DownloadAction.START), actions)
+        assertEquals(true, favoriteToggled)
+        assertEquals(true, backClicked)
     }
 
     private fun pressOk() {

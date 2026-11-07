@@ -24,6 +24,7 @@ import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.catalog.Catalog
 import com.shadowzen.tvstore.core.catalog.CatalogState
 import com.shadowzen.tvstore.core.designsystem.StoreColors
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 
 /**
  * 根据目录状态显示加载中、错误（无缓存）、空目录或实际内容。
@@ -105,7 +106,12 @@ private fun CatalogMessage(
         }
         if (actionLabel != null) {
             Spacer(Modifier.height(28.dp))
-            Button(onClick = onAction, modifier = Modifier.focusRequester(focusRequester)) {
+            Button(
+                onClick = onAction,
+                modifier = Modifier
+                    .focusRequester(focusRequester)
+                    .pointerClick(onClick = onAction),
+            ) {
                 Text(text = actionLabel, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 24.dp))
             }
         }

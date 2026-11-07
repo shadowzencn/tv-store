@@ -32,6 +32,7 @@ import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
 import com.shadowzen.tvstore.core.designsystem.androidVersionName
 import com.shadowzen.tvstore.core.designsystem.formatFileSize
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.core.model.CompatibilityStatus
 import com.shadowzen.tvstore.core.model.StoreApp
 import com.shadowzen.tvstore.feature.downloads.DownloadAction
@@ -50,6 +51,7 @@ fun DetailScreen(
     isFavorite: Boolean = false,
     onToggleFavorite: (() -> Unit)? = null,
     onOpenFeedback: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
 ) {
     val downloadFocus = remember { FocusRequester() }
     val action = primaryActionFor(
@@ -115,17 +117,25 @@ fun DetailScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Button(
                     onClick = { onPrimaryAction(action) },
-                    modifier = Modifier.focusRequester(downloadFocus),
+                    modifier = Modifier
+                        .focusRequester(downloadFocus)
+                        .pointerClick { onPrimaryAction(action) },
                 ) {
                     Text(text = action.label, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 24.dp))
                 }
                 if (action == DownloadAction.UPDATE) {
-                    OutlinedButton(onClick = { onPrimaryAction(DownloadAction.OPEN) }) {
+                    OutlinedButton(
+                        onClick = { onPrimaryAction(DownloadAction.OPEN) },
+                        modifier = Modifier.pointerClick { onPrimaryAction(DownloadAction.OPEN) },
+                    ) {
                         Text(text = "打开旧版", fontSize = 17.sp, modifier = Modifier.padding(horizontal = 8.dp))
                     }
                 }
                 if (onToggleFavorite != null) {
-                    OutlinedButton(onClick = onToggleFavorite) {
+                    OutlinedButton(
+                        onClick = onToggleFavorite,
+                        modifier = Modifier.pointerClick(onClick = onToggleFavorite),
+                    ) {
                         Text(
                             text = if (isFavorite) "已收藏 · 取消" else "收藏",
                             fontSize = 17.sp,
@@ -134,8 +144,19 @@ fun DetailScreen(
                     }
                 }
                 if (onOpenFeedback != null) {
-                    OutlinedButton(onClick = onOpenFeedback) {
+                    OutlinedButton(
+                        onClick = onOpenFeedback,
+                        modifier = Modifier.pointerClick(onClick = onOpenFeedback),
+                    ) {
                         Text(text = "问题反馈", fontSize = 17.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                    }
+                }
+                if (onBack != null) {
+                    OutlinedButton(
+                        onClick = onBack,
+                        modifier = Modifier.pointerClick(onClick = onBack),
+                    ) {
+                        Text(text = "返回", fontSize = 17.sp, modifier = Modifier.padding(horizontal = 8.dp))
                     }
                 }
             }

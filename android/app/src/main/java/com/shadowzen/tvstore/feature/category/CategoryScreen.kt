@@ -38,6 +38,7 @@ import androidx.tv.material3.Text
 import com.shadowzen.tvstore.core.catalog.Catalog
 import com.shadowzen.tvstore.core.designsystem.StoreColors
 import com.shadowzen.tvstore.core.designsystem.StoreDimens
+import com.shadowzen.tvstore.core.designsystem.pointerClick
 import com.shadowzen.tvstore.core.model.StoreApp
 import com.shadowzen.tvstore.core.model.StoreCategory
 import com.shadowzen.tvstore.feature.home.AppCard
@@ -162,6 +163,7 @@ private fun CategoryChip(
     val shape = RoundedCornerShape(20.dp)
     Surface(
         onClick = onClick,
+        modifier = Modifier.pointerClick(onClick = onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) StoreColors.Accent else StoreColors.CardBackground,
