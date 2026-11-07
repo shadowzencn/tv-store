@@ -15,6 +15,7 @@ import com.shadowzen.tvstore.core.download.StorageSpace
 import com.shadowzen.tvstore.core.download.WorkManagerDownloadScheduler
 import com.shadowzen.tvstore.core.installer.StoreInstaller
 import com.shadowzen.tvstore.core.network.ClientVersionApi
+import com.shadowzen.tvstore.core.network.EventReporter
 import com.shadowzen.tvstore.core.network.FeedbackApi
 import com.shadowzen.tvstore.core.network.StoreHttpClient
 import com.shadowzen.tvstore.feature.downloads.DownloadCoordinator
@@ -63,6 +64,8 @@ class AppContainer(context: Context) {
 
     val feedbackApi by lazy { FeedbackApi(httpClient, serverBaseUrl) }
 
+    val eventReporter by lazy { EventReporter(httpClient, serverBaseUrl) }
+
     val favoritesStore by lazy { FavoritesStore(File(appContext.filesDir, "prefs/favorites.txt")) }
 
     val searchHistoryStore by lazy { SearchHistoryStore(File(appContext.filesDir, "prefs/search_history.txt")) }
@@ -85,7 +88,10 @@ class AppContainer(context: Context) {
             dao = database.downloadTaskDao(),
             engine = DownloadEngine(httpClient, storageSpace::availableBytes),
             files = downloadFiles,
-            onCompleted = { completedDownloadsFlow.tryEmit(it.appId) },
+            onCompleted = { task ->
+                completedDownloadsFlow.tryEmit(task.appId)
+                appScope.launch { eventReporter.reportDownload(task) }
+            },
             onError = { message, error -> Log.e("DownloadQueueRunner", message, error) },
         )
     }
@@ -97,10 +103,14 @@ class AppContainer(context: Context) {
     val storeInstaller by lazy {
         StoreInstaller(appContext, appScope) { appId ->
             appScope.launch {
+                val task = database.downloadTaskDao().get(appId)
                 try {
                     downloadManager.markInstalled(appId)
                 } catch (e: IOException) {
                     Log.e("AppContainer", "安装成功后删除安装包失败", e)
+                }
+                if (task != null) {
+                    eventReporter.reportInstall(task)
                 }
             }
         }

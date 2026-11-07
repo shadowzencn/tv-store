@@ -16,7 +16,9 @@ class StoreAppsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['category', 'publishedVersion']))
+            ->modifyQueryUsing(fn ($query) => $query
+                ->with(['category', 'publishedVersion'])
+                ->withCount(['downloadEvents', 'installEvents']))
             ->defaultSort('sort_order')
             ->columns([
                 ImageColumn::make('icon_path')
@@ -36,6 +38,14 @@ class StoreAppsTable
                     ->label('当前发布版本')
                     ->description(fn ($record) => $record->publishedVersion ? 'versionCode '.$record->publishedVersion->version_code : null)
                     ->placeholder('无'),
+                TextColumn::make('download_events_count')
+                    ->label('下载次数')
+                    ->numeric()
+                    ->sortable(),
+                TextColumn::make('install_events_count')
+                    ->label('安装次数')
+                    ->numeric()
+                    ->sortable(),
                 IconColumn::make('is_listed')
                     ->label('上架')
                     ->boolean(),

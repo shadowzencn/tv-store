@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AppEventType;
 use App\Enums\VersionStatus;
 use Database\Factories\StoreAppFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -51,5 +52,20 @@ class StoreApp extends Model
     public function publishedVersion(): HasOne
     {
         return $this->hasOne(AppVersion::class, 'app_id')->where('status', VersionStatus::Published->value);
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(AppEvent::class, 'app_id');
+    }
+
+    public function downloadEvents(): HasMany
+    {
+        return $this->hasMany(AppEvent::class, 'app_id')->where('event_type', AppEventType::Download->value);
+    }
+
+    public function installEvents(): HasMany
+    {
+        return $this->hasMany(AppEvent::class, 'app_id')->where('event_type', AppEventType::Install->value);
     }
 }

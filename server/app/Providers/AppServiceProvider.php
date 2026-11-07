@@ -50,5 +50,9 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perDay($limits['per_day'])->by('feedback-day:'.$request->ip()),
             ];
         });
+
+        RateLimiter::for('events', function (Request $request) {
+            return Limit::perMinute(60)->by('events-minute:'.$request->ip());
+        });
     }
 }
