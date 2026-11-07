@@ -51,6 +51,7 @@ fun DownloadsScreen(
     onDelete: (DownloadTask) -> Unit,
     onListEmptied: () -> Unit,
     modifier: Modifier = Modifier,
+    iconUrl: (appId: String) -> String? = { null },
 ) {
     val primaryFocus = remember { mutableMapOf<String, FocusRequester>() }
     // 删除后把焦点移到相邻任务，避免焦点随被删除的按钮一起消失
@@ -105,6 +106,7 @@ fun DownloadsScreen(
                     }
                     DownloadRow(
                         task = task,
+                        iconUrl = iconUrl(task.appId),
                         statusLine = statusLineFor(task, installStates[task.appId], notices[task.appId]),
                         primaryFocusRequester = requester,
                         onPrimary = { onAction(primaryActionFor(task, hasPackage = true), task) },
@@ -122,6 +124,7 @@ fun DownloadsScreen(
 @Composable
 private fun DownloadRow(
     task: DownloadTask,
+    iconUrl: String?,
     statusLine: StatusLine,
     primaryFocusRequester: FocusRequester,
     onPrimary: () -> Unit,
@@ -138,7 +141,7 @@ private fun DownloadRow(
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AppIcon(appId = task.appId, appName = task.appName, size = 64.dp)
+        AppIcon(iconUrl = iconUrl, appId = task.appId, appName = task.appName, size = 64.dp)
         Spacer(Modifier.width(20.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.Bottom) {

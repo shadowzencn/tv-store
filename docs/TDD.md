@@ -173,8 +173,8 @@ APKM、APKS、XAPK 不等于 Android 原生 APK，必须单独处理。
 - `InstallPolicy`：安装前判断。包名必须与预期一致；签名不一致拒绝；versionCode 更低拒绝（不自动降级）；允许全新安装、升级和同版本重装。拒绝时不调用系统安装。
 - `ApkInstaller`：创建 PackageInstaller 会话写入 APK 并提交；`InstallResultReceiver` 收到 STATUS_PENDING_USER_ACTION 时打开系统确认界面，最终结果经 `InstallEvents` 送到界面。
 - 未允许“安装未知应用”时先引导到系统设置；设备没有该设置页面时直接提交，由系统决定是否提示。
-- 软件包可见性：internal 版只对测试包声明 `<queries>`。正式版查询其他应用的方式在接入真实应用数据时确定。
-- 商店安装流程（`StoreInstaller`）：下载完成的安装包先按商店记录的包名执行 `InstallPolicy` 检查，再提交系统安装；安装状态按应用保存在内存中，安装成功后删除安装包。正式版尚未声明 `<queries>`：Android 11 起查询不到的应用会按全新安装处理，此时签名冲突和降级仍由系统安装程序拒绝；通过本商店安装的应用能否被查询，在里程碑测试 1 中实机核实后再确定可见性方案。
+- 软件包可见性：`AndroidManifest.xml` 声明 `<queries><intent><action android:name="android.intent.action.MAIN" /></intent></queries>`，在 Android 11（API 30）及以上可查询所有含 `MAIN` 启动入口的已安装应用（涵盖 `LAUNCHER` 与 `LEANBACK_LAUNCHER`），用于安装前版本/签名检查与安装后启动应用。
+- 商店安装流程（`StoreInstaller`）：下载完成的安装包先按商店记录的包名执行 `InstallPolicy` 检查，再提交系统安装；安装状态按应用保存在内存中，安装成功后删除安装包。
 
 安装验证（internal 版专用）：`android/installtest/` 模块产出 v1、v2 和异签 v2 三个测试 APK，只打包进 internal 版 assets；“设置”页显示安装测试入口。异签证书在构建时生成到 `build/`，不进 Git，仅用于签名冲突测试。
 

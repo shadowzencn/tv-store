@@ -171,6 +171,7 @@ fun TvStoreApp() {
                     },
                     onDelete = { task -> coordinator.delete(task.appId) },
                     onListEmptied = { tabFocusRequesters.getValue(TopTab.DOWNLOADS).requestFocus() },
+                    iconUrl = { appId -> catalog?.findApp(appId)?.iconUrl },
                 )
                 TopTab.SETTINGS -> if (installTestAvailable) {
                     InstallTestScreen()
